@@ -85,6 +85,7 @@ server.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
 
+ runReminderCron(io);
 
 
 // const express = require("express");
