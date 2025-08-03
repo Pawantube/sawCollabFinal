@@ -1,0 +1,19 @@
+.chat-bubble-wrapper {
+	
+  overflow: visible;   /* Allow dropdown to render outside */
+	position: relative;
+	display: flex;
+	align-items: center;
+	z-index: auto;
+	gap: 8px;
+  }
+  
+  .reminder-button-hover {
+	opacity: 0.3;
+	transition: opacity 0.2s;
+  }
+  
+  .chat-bubble-wrapper:hover .reminder-button-hover {
+	opacity: 1;
+  }
+  
