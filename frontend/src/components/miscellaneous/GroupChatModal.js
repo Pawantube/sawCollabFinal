@@ -18,6 +18,8 @@ import { useState } from "react";
 import { ChatState } from "../../Context/ChatProvider";
 import UserBadgeItem from "../userAvatar/UserBadgeItem";
 import UserListItem from "../userAvatar/UserListItem";
+const BASE_URL="https://sawcollabfinal.onrender.com";
+
 
 const GroupChatModal = ({ children }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -170,7 +172,7 @@ const handleSearch = async (query) => {
         },
       };
       const { data } = await axios.post(
-        `/api/chat/group`,
+        `${BASE_URL}/api/chat/group`,
         {
           name: groupChatName,
           users: JSON.stringify(selectedUsers.map((u) => u._id)),

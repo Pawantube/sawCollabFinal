@@ -21,6 +21,8 @@ import { useState } from "react";
 import { ChatState } from "../../Context/ChatProvider";
 import UserBadgeItem from "../userAvatar/UserBadgeItem";
 import UserListItem from "../userAvatar/UserListItem";
+const BASE_URL="https://sawcollabfinal.onrender.com";
+
 
 const UpdateGroupChatModal = ({ fetchMessages, fetchAgain, setFetchAgain }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -132,7 +134,7 @@ const UpdateGroupChatModal = ({ fetchMessages, fetchAgain, setFetchAgain }) => {
         },
       };
       const { data } = await axios.put(
-        `/api/chat/groupadd`,
+        `${BASE_URL}/api/chat/groupadd`,
         {
           chatId: selectedChat._id,
           userId: user1._id,
@@ -177,7 +179,7 @@ const UpdateGroupChatModal = ({ fetchMessages, fetchAgain, setFetchAgain }) => {
         },
       };
       const { data } = await axios.put(
-        `/api/chat/groupremove`,
+        `${BASE_URL}/api/chat/groupremove`,
         {
           chatId: selectedChat._id,
           userId: user1._id,

@@ -397,7 +397,7 @@ import {
   
 // 	const handleDelete = async (id) => {
 // 	  try {
-// 		await axios.delete(`/api/reminder/${id}`, {
+// 		await delete(`/api/reminder/${id}`, {
 // 		  headers: { Authorization: `Bearer ${user.token}` },
 // 		});
 // 		fetchReminders();
