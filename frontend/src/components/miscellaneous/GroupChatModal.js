@@ -125,7 +125,7 @@ const handleSearch = async (query) => {
       },
     };
 
-    const { data } = await axios.get(`/api/user?search=${query}`, config);
+    const { data } = await axios.get(`${BASE_URL}/api/user?search=${query}`, config);
 
     // 🧠 Optional: Filter results to only those starting with the search
     const refinedResults = data.filter((user) =>
