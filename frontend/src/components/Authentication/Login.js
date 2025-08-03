@@ -41,9 +41,9 @@ const Login = () => {
       };
 
       const { data } = await axios.post(
-      `https://sawcollabfinal.onrender.com/api/user/login`,
+      "https://sawcollabfinal.onrender.com/api/user/login",
         { email, password },
-        config
+		{ withCredentials: true }
       );
 
       toast({
