@@ -7,7 +7,7 @@ import axios from "axios";
 import { useToast } from "@chakra-ui/react";
 import { useHistory } from "react-router-dom";
 import { ChatState } from "../../Context/ChatProvider";
-
+import BASE_URL from "../../../src/config"
 const Login = () => {
   const [show, setShow] = useState(false);
   const handleClick = () => setShow(!show);
@@ -18,8 +18,7 @@ const Login = () => {
 
   const history = useHistory();
   const { setUser } = ChatState();
-	const API_BASE_URL ="https://sawcollabv03.onrender.com" ; // fallback for local
-	console.log("API_BASE_URL:", API_BASE_URL);
+
   const submitHandler = async () => {
     setLoading(true);
     if (!email || !password) {
@@ -41,8 +40,8 @@ const Login = () => {
         },
       };
 
-      const { data } = await axios.post
-        (`${API_BASE_URL}/api/user/login`,
+      const { data } = await axios.post(
+      "/api/user/login",
         { email, password },
         config
       );
@@ -59,16 +58,17 @@ const Login = () => {
       setLoading(false);
       history.push("/chats");
     } catch (error) {
-      toast({
-        title: "Error Occured!",
-        description: error.response.data.message,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom",
-      });
-      setLoading(false);
-    }
+  const message =
+    error.response?.data?.message || error.message || "Login failed";
+
+  toast({
+    title: "Error Occurred!",
+    description: message,
+    status: "error",
+    duration: 5000,
+    isClosable: true,
+  });
+}
   };
 
   return (
