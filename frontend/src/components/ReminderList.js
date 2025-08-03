@@ -91,6 +91,7 @@ import {
 	Tooltip,
 	useDisclosure,
   } from "@chakra-ui/react";
+  const BASE_URL="https://sawcollabfinal.onrender.com" || "http://localhost:5000"
   import { useEffect, useState } from "react";
   import axios from "axios";
   import { ChatState } from "../Context/ChatProvider";
@@ -116,7 +117,7 @@ import {
 			Authorization: `Bearer ${user.token}`,
 		  },
 		};
-		const { data } = await axios.get("/api/reminders/user", config);
+		const { data } = await axios.get(`${BASE_URL}/api/reminders/user`, config);
 		setReminders(data);
 	  } catch (err) {
 		console.error("Failed to fetch reminders", err);
@@ -128,7 +129,7 @@ import {
 	const markAsDone = async (id) => {
 	  try {
 		await axios.put(
-		  `/api/reminders/${id}/done`,
+		  `${BASE_URL}/api/reminders/${id}/done`,
 		  {},
 		  {
 			headers: { Authorization: `Bearer ${user.token}` },

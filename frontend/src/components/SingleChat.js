@@ -286,9 +286,9 @@ import { ChatState } from "../Context/ChatProvider";
 import ReminderSidebar from "../components/reminders/ReminderSidebar"; // Sidebar component
 import ReminderButton from "../components/reminders/ReminderButton.js"
 
-const ENDPOINT = "http://localhost:5000" || "https://sawcollabv03.onrender.com";
+const ENDPOINT = "http://localhost:5000" ;
 var socket, selectedChatCompare;
-const BASE_URL = "https://your-backend.onrender.com"; 
+const BASE_URL = "https://sawcollabfinal.onrender.com"; 
 const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
