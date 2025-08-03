@@ -1911,6 +1911,7 @@ import UserListItem from "../userAvatar/UserListItem";
 import NotificationBadge from "react-notification-badge";
 import { Effect } from "react-notification-badge";
 import { Portal } from "@chakra-ui/react";
+const BASE_URL="https://sawcollabfinal.onrender.com"
 function SideDrawer() {
   const [showReminderSidebar, setShowReminderSidebar] = useState(false);
   const [reminderType, setReminderType] = useState("private");
@@ -1931,7 +1932,7 @@ function SideDrawer() {
     localStorage.removeItem("userInfo");
     history.push("/");
   };
-const BASE_URL="https://sawcollabfinal.onrender.com"
+
   const accessChat = async (userId) => {
     try {
       setLoadingChat(true);
