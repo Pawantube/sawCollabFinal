@@ -31,6 +31,8 @@ import {
 import axios from "axios";
 import moment from "moment";
 import { ChatState } from "../../Context/ChatProvider";
+const BASE_URL="https://sawcollabfinal.onrender.com";
+
 
 const ReminderSidebar = (z) => {
   const { selectedChat, user } = ChatState();
@@ -55,7 +57,7 @@ const ReminderSidebar = (z) => {
     };
 
     const { data } = await axios.get(
-    `/api/reminders/chat/${selectedChat._id}?status=${activeTab}`,
+    `${BASE_URL}/api/reminders/chat/${selectedChat._id}?status=${activeTab}`,
       config
     );
 
@@ -78,7 +80,7 @@ const ReminderSidebar = (z) => {
   const handleMarkDone = async (id) => {
   try {
     const config = { headers: { Authorization: `Bearer ${user.token}` } };
-    await axios.put(`/api/reminders/${id}/toggle-done`, {}, config); // ✅ UPDATED ENDPOINT
+    await axios.put(`${BASE_URL}/api/reminders/${id}/toggle-done`, {}, config); // ✅ UPDATED ENDPOINT
     fetchReminders(); // ✅ Refresh reminder list
   } catch (err) {
     toast({
@@ -96,7 +98,7 @@ const ReminderSidebar = (z) => {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
       const newDate = new Date();
       newDate.setMinutes(newDate.getMinutes() + 10);
-      await axios.put(`/api/reminders/${id}/reschedule`, { dueAt: newDate }, config);
+      await axios.put(`${BASE_URL}/api/reminders/${id}/reschedule`, { dueAt: newDate }, config);
       fetchReminders();
       toast({
         title: "Snoozed +10 minutes",
@@ -120,7 +122,7 @@ const ReminderSidebar = (z) => {
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
       await axios.put(
-        `/api/reminders/${activeReminderId}/reschedule`,
+        `${BASE_URL}/api/reminders/${activeReminderId}/reschedule`,
         { dueAt: snoozeDate },
         config
       );
@@ -150,7 +152,7 @@ const ReminderSidebar = (z) => {
     if (!window.confirm("Are you sure you want to delete this reminder?")) return;
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      await axios.delete(`/api/reminders/${id}`, config);
+      await axios.delete(`${BASE_URL}/api/reminders/${id}`, config);
       fetchReminders();
     } catch (err) {
       toast({

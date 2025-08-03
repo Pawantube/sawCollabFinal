@@ -11,7 +11,8 @@ import {
   } from "@chakra-ui/react";
   import axios from "axios";
   import { useToast } from "@chakra-ui/react";
-  
+  const BASE_URL="https://sawcollabfinal.onrender.com";
+
   const snoozeOptions = [5, 15, 30]; // in minutes
   
   const ReminderSnoozeModal = ({ isOpen, onClose, reminder, onResnooze }) => {
@@ -21,7 +22,7 @@ import {
 	  const newDueAt = new Date(Date.now() + minutes * 60 * 1000);
 	  try {
 		await axios.put(
-		  `/api/reminders/${reminder._id}/reschedule`,
+		  `${BASE_URL}/api/reminders/${reminder._id}/reschedule`,
 		  { dueAt: newDueAt },
 		  {
 			headers: {
