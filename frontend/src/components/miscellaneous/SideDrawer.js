@@ -1940,7 +1940,7 @@ function SideDrawer() {
           Authorization: `Bearer ${user.token}`,
         },
       };
-      const { data } = await axios.post("/api/chat", { userId }, config);
+      const { data } = await axios.post(`${BASE_URL}/api/chat`, { userId }, config);
       if (!chats.find((c) => c._id === data._id)) {
         setChats([data, ...chats]);
       }
@@ -1976,7 +1976,7 @@ function SideDrawer() {
       const config = {
         headers: { Authorization: `Bearer ${user.token}` },
       };
-      const { data } = await axios.get(`/api/user?search=${search}`, config);
+      const { data } = await axios.get(`${BASE_URL}/api/user?search=${search}`, config);
       const filteredResults = data.filter((u) => u._id !== user._id);
       setSearchResult(filteredResults);
       setLoading(false);
@@ -2205,7 +2205,7 @@ function ReminderList({ type }) {
       const config = {
         headers: { Authorization: `Bearer ${user.token}` },
       };
-      const endpoint = type === "private" ? "/api/reminders/user" : "/api/reminders/public";
+      const endpoint = type === "private" ? `${BASE_URL}/api/reminders/user` : `${BASE_URL}/api/reminders/public`;
       const { data } = await axios.get(endpoint, config);
       setReminders(data);
     } catch (error) {
@@ -2227,7 +2227,7 @@ function ReminderList({ type }) {
 
   const handleMarkAsDone = async (id) => {
     try {
-      await axios.put(`/api/reminders/${id}/done`, {}, {
+      await axios.put(`${BASE_URL}/api/reminders/${id}/done`, {}, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       toast({ title: "Marked as done!", status: "success", isClosable: true });
@@ -2245,7 +2245,7 @@ function ReminderList({ type }) {
   const handleRemindAgain = async (id) => {
     try {
       const newDueAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins later
-      await axios.put(`/api/reminders/${id}/reschedule`, { dueAt: newDueAt }, {
+      await axios.put(`${BASE_URL}/api/reminders/${id}/reschedule`, { dueAt: newDueAt }, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       toast({ title: "Reminder snoozed!", status: "info", isClosable: true });
@@ -2262,7 +2262,7 @@ function ReminderList({ type }) {
 
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`/api/reminders/${id}`, {
+      await axios.delete(`${BASE_URL}/api/reminders/${id}`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       toast({ title: "Reminder deleted", status: "warning", isClosable: true });
