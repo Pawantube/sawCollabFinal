@@ -17,7 +17,8 @@ import {
   import { useEffect, useState } from "react";
   import axios from "axios";
   import { ChatState } from "../../Context/ChatProvider";
-  
+  const BASE_URL="https://sawcollabfinal.onrender.com";
+
   const ReminderModal = ({ isOpen, onClose, message }) => {
 	const { selectedChat, user } = ChatState();
 	const toast = useToast();
@@ -229,7 +230,7 @@ import {
 			chatId: type === "us" ? selectedChat._id : undefined,
 		  };
 	  
-		  await axios.post("/api/reminders", payload, config);
+		  await axios.post(`${BASE_URL}/api/reminders`, payload, config);
 	  
 		  // ✅ Schedule local notification if permission is granted
 		  if (
