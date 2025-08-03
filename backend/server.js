@@ -1,116 +1,203 @@
 const express = require("express");
 const dotenv = require("dotenv");
-const connectDB = require("./config/db");
-const colors = require("colors");
+const cors = require("cors");
 const path = require("path");
+const { Server } = require("socket.io");
+const http = require("http");
 
+const connectDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const reminderRoutes = require("./routes/reminderRoutes");
-
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
-const runReminderCron = require("./reminderCron");
-
-const Reminder = require("./models/reminderModel");
 
 dotenv.config();
 connectDB();
 
 const app = express();
+
+// ✅ Enable CORS for Netlify frontend
+app.use(cors({
+  origin: "https://pawan-saw.netlify.app",
+  credentials: true,
+}));
+
+// ✅ Accept JSON
 app.use(express.json());
 
-// ROUTES
+// ✅ Define API routes
 app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/message", messageRoutes);
-app.use("/api/reminders", reminderRoutes);
+app.use("/api/reminder", reminderRoutes);
 
-// STATIC FILES FOR DEPLOYMENT
-const __dirname1 = path.resolve();
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname1, "/frontend/build")));
-  app.get("*", (req, res) =>
-    res.sendFile(path.resolve(__dirname1, "frontend", "build", "index.html"))
-  );
-} else {
-  app.get("/", (req, res) => {
-    res.send("API is running...");
-  });
-}
-
-// MIDDLEWARES
+// ✅ Error handling middleware
 app.use(notFound);
 app.use(errorHandler);
 
-// SERVER LISTEN
-const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Server running on PORT ${PORT}...`.yellow.bold);
-});
+// ✅ Create HTTP server instance
+const server = http.createServer(app);
 
-const io = require("socket.io")(server, {
+// ✅ Socket.io config
+const io = new Server(server, {
   pingTimeout: 60000,
   cors: {
-	origin:function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    } else {
-      return callback(new Error('Not allowed by CORS'));
-    }
-  },
-    
+    origin: "https://pawan-saw.netlify.app",
     credentials: true,
   },
 });
 
-// SOCKET EVENTS
+// ✅ Socket.io event handlers
 io.on("connection", (socket) => {
-  console.log("✅ Socket connected");
+  console.log("⚡ New socket connection");
 
-  // Setup user socket
   socket.on("setup", (userData) => {
     socket.join(userData._id);
     socket.emit("connected");
   });
 
-  // Join a specific chat room
   socket.on("join chat", (room) => {
     socket.join(room);
-    console.log("User joined chat:", room);
   });
 
-  // Join multiple chats (e.g., after login)
-  socket.on("joinChats", (chatIds) => {
-    chatIds.forEach((id) => socket.join(id));
-    console.log("User joined chats:", chatIds);
-  });
-
-  // Typing notifications
   socket.on("typing", (room) => socket.in(room).emit("typing"));
   socket.on("stop typing", (room) => socket.in(room).emit("stop typing"));
 
-  // Send new message to other users in the chat
   socket.on("new message", (newMessageReceived) => {
     const chat = newMessageReceived.chat;
-    if (!chat?.users) return console.log("❌ chat.users not defined");
+    if (!chat.users) return console.log("Chat.users not defined");
 
     chat.users.forEach((user) => {
-      if (user._id === newMessageReceived.sender._id) return; // Don't emit to sender
-      socket.in(user._id).emit("message recieved", newMessageReceived);
+      if (user._id === newMessageReceived.sender._id) return;
+      socket.in(user._id).emit("message received", newMessageReceived);
     });
   });
 
-  socket.off("setup", () => {
-    console.log("❌ User disconnected");
-    socket.leave(socket.id);
+  socket.on("disconnect", () => {
+    console.log("🔌 User disconnected");
   });
 });
 
-// CRON TO CHECK REMINDERS & EMIT
-runReminderCron(io);
+// ✅ Start server
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+});
+
+
+
+// const express = require("express");
+// const dotenv = require("dotenv");
+// const connectDB = require("./config/db");
+// const colors = require("colors");
+// const path = require("path");
+
+// const userRoutes = require("./routes/userRoutes");
+// const chatRoutes = require("./routes/chatRoutes");
+// const messageRoutes = require("./routes/messageRoutes");
+// const reminderRoutes = require("./routes/reminderRoutes");
+
+// const { notFound, errorHandler } = require("./middleware/errorMiddleware");
+// const runReminderCron = require("./reminderCron");
+
+// const Reminder = require("./models/reminderModel");
+
+// dotenv.config();
+// connectDB();
+
+// const app = express();
+// app.use(express.json());
+
+// // ROUTES
+// app.use("/api/user", userRoutes);
+// app.use("/api/chat", chatRoutes);
+// app.use("/api/message", messageRoutes);
+// app.use("/api/reminders", reminderRoutes);
+
+// // STATIC FILES FOR DEPLOYMENT
+// const __dirname1 = path.resolve();
+// if (process.env.NODE_ENV === "production") {
+//   app.use(express.static(path.join(__dirname1, "/frontend/build")));
+//   app.get("*", (req, res) =>
+//     res.sendFile(path.resolve(__dirname1, "frontend", "build", "index.html"))
+//   );
+// } else {
+//   app.get("/", (req, res) => {
+//     res.send("API is running...");
+//   });
+// }
+
+// // MIDDLEWARES
+// app.use(notFound);
+// app.use(errorHandler);
+
+// // SERVER LISTEN
+// const PORT = process.env.PORT || 5000;
+// const server = app.listen(PORT, () => {
+//   console.log(`🚀 Server running on PORT ${PORT}...`.yellow.bold);
+// });
+
+// const io = require("socket.io")(server, {
+//   pingTimeout: 60000,
+//   cors: {
+//     origin: "https://pawan-saw.netlify.app",
+//     credentials: true,
+//   },
+// });
+// const cors = require("cors");
+
+// app.use(cors({
+//   origin: "https://pawan-saw.netlify.app",
+//   credentials: true,
+// }));
+
+
+// // SOCKET EVENTS
+// io.on("connection", (socket) => {
+//   console.log("✅ Socket connected");
+
+//   // Setup user socket
+//   socket.on("setup", (userData) => {
+//     socket.join(userData._id);
+//     socket.emit("connected");
+//   });
+
+//   // Join a specific chat room
+//   socket.on("join chat", (room) => {
+//     socket.join(room);
+//     console.log("User joined chat:", room);
+//   });
+
+//   // Join multiple chats (e.g., after login)
+//   socket.on("joinChats", (chatIds) => {
+//     chatIds.forEach((id) => socket.join(id));
+//     console.log("User joined chats:", chatIds);
+//   });
+
+//   // Typing notifications
+//   socket.on("typing", (room) => socket.in(room).emit("typing"));
+//   socket.on("stop typing", (room) => socket.in(room).emit("stop typing"));
+
+//   // Send new message to other users in the chat
+//   socket.on("new message", (newMessageReceived) => {
+//     const chat = newMessageReceived.chat;
+//     if (!chat?.users) return console.log("❌ chat.users not defined");
+
+//     chat.users.forEach((user) => {
+//       if (user._id === newMessageReceived.sender._id) return; // Don't emit to sender
+//       socket.in(user._id).emit("message recieved", newMessageReceived);
+//     });
+//   });
+
+//   socket.off("setup", () => {
+//     console.log("❌ User disconnected");
+//     socket.leave(socket.id);
+//   });
+// });
+
+// // CRON TO CHECK REMINDERS & EMIT
+// runReminderCron(io);
 
 
 
