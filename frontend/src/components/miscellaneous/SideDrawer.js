@@ -1911,7 +1911,8 @@ import UserListItem from "../userAvatar/UserListItem";
 import NotificationBadge from "react-notification-badge";
 import { Effect } from "react-notification-badge";
 import { Portal } from "@chakra-ui/react";
-const BASE_URL="https://sawcollabfinal.onrender.com"
+const BASE_URL=process.env.REACT_APP_BASE_URL ||"https://sawcollabfinal.onrender.com";
+console.log(BASE_URL)
 function SideDrawer() {
   const [showReminderSidebar, setShowReminderSidebar] = useState(false);
   const [reminderType, setReminderType] = useState("private");
