@@ -4,7 +4,7 @@ const cors = require("cors");
 const path = require("path");
 const { Server } = require("socket.io");
 const http = require("http");
-
+const runReminderCron  = require('./reminderCron');
 const connectDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
