@@ -1899,7 +1899,7 @@ import {
   RepeatIcon,
   DeleteIcon,
 } from "@chakra-ui/icons";
-const BASE_URL="https://sawcollabfinal.onrender.com"
+
 import { FaBrain } from "react-icons/fa";
 import { useHistory } from "react-router-dom";
 import { ChatState } from "../../Context/ChatProvider";
@@ -1931,7 +1931,7 @@ function SideDrawer() {
     localStorage.removeItem("userInfo");
     history.push("/");
   };
-
+const BASE_URL="https://sawcollabfinal.onrender.com"
   const accessChat = async (userId) => {
     try {
       setLoadingChat(true);
