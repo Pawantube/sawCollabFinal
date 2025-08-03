@@ -30,7 +30,7 @@ app.use(express.json());
 app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/message", messageRoutes);
-app.use("/api/reminder", reminderRoutes);
+app.use("/api/reminders", reminderRoutes);
 
 // ✅ Error handling middleware
 app.use(notFound);
