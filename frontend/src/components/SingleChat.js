@@ -369,31 +369,39 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   };
 
-  useEffect(() => {
-    socket = io(ENDPOINT);
-    socket.emit("setup", user);
-    socket.on("connected", () => setSocketConnected(true));
-    socket.on("typing", () => setIsTyping(true));
-    socket.on("stop typing", () => setIsTyping(false));
-  }, []);
+ useEffect(() => {
+  socket = io(ENDPOINT);
+  socket.emit("setup", user);
 
-  useEffect(() => {
-    fetchMessages();
-    selectedChatCompare = selectedChat;
-  }, [selectedChat]);
+  socket.on("connected", () => setSocketConnected(true));
+  socket.on("typing", () => setIsTyping(true));
+  socket.on("stop typing", () => setIsTyping(false));
+}, []);
 
-  useEffect(() => {
-    socket.on("message recieved", (newMessageRecieved) => {
-      if (!selectedChatCompare || selectedChatCompare._id !== newMessageRecieved.chat._id) {
-        if (!notification.includes(newMessageRecieved)) {
-          setNotification([newMessageRecieved, ...notification]);
-          setFetchAgain(!fetchAgain);
-        }
-      } else {
-        setMessages([...messages, newMessageRecieved]);
+useEffect(() => {
+  fetchMessages();
+  selectedChatCompare = selectedChat;
+}, [selectedChat]);
+
+useEffect(() => {
+  if (!socket) return;
+
+  const handleMessageReceived = (newMessage) => {
+    if (!selectedChatCompare || selectedChatCompare._id !== newMessage.chat._id) {
+      if (!notification.some(msg => msg._id === newMessage._id)) {
+        setNotification(prev => [newMessage, ...prev]);
+        setFetchAgain(prev => !prev);
       }
-    });
-  });
+    } else {
+      setMessages(prevMessages => [...prevMessages, newMessage]);
+    }
+  };
+
+  socket.on("message received", handleMessageReceived);
+
+  // cleanup
+  return () => socket.off("message received", handleMessageReceived);
+}, []);
 
   const typingHandler = (e) => {
     setNewMessage(e.target.value);

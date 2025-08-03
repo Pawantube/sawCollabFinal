@@ -4,8 +4,9 @@ const cors = require("cors");
 const path = require("path");
 const { Server } = require("socket.io");
 const http = require("http");
-const runReminderCron  = require('./reminderCron');
 const connectDB = require("./config/db");
+const runReminderCron = require("./reminderCron");
+
 const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const messageRoutes = require("./routes/messageRoutes");
@@ -17,29 +18,31 @@ connectDB();
 
 const app = express();
 
-// ✅ Enable CORS for Netlify frontend
-app.use(cors({
-  origin: "https://pawan-saw.netlify.app",
-  credentials: true,
-}));
+// ✅ CORS
+app.use(
+  cors({
+    origin: "https://pawan-saw.netlify.app",
+    credentials: true,
+  })
+);
 
-// ✅ Accept JSON
+// ✅ Body Parser
 app.use(express.json());
 
-// ✅ Define API routes
+// ✅ API Routes
 app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/message", messageRoutes);
 app.use("/api/reminders", reminderRoutes);
 
-// ✅ Error handling middleware
+// ✅ Error Handlers
 app.use(notFound);
 app.use(errorHandler);
 
-// ✅ Create HTTP server instance
+// ✅ Create HTTP Server
 const server = http.createServer(app);
 
-// ✅ Socket.io config
+// ✅ Attach Socket.io
 const io = new Server(server, {
   pingTimeout: 60000,
   cors: {
@@ -48,7 +51,10 @@ const io = new Server(server, {
   },
 });
 
-// ✅ Socket.io event handlers
+// ✅ Store io in app for cron job access
+app.set("io", io);
+
+// ✅ Socket.io Handlers
 io.on("connection", (socket) => {
   console.log("⚡ New socket connection");
 
@@ -61,31 +67,160 @@ io.on("connection", (socket) => {
     socket.join(room);
   });
 
-  socket.on("typing", (room) => socket.in(room).emit("typing"));
-  socket.on("stop typing", (room) => socket.in(room).emit("stop typing"));
+  socket.on("typing", (room) => {
+    socket.in(room).emit("typing");
+  });
 
-  socket.on("new message", (newMessageReceived) => {
-    const chat = newMessageReceived.chat;
-    if (!chat.users) return console.log("Chat.users not defined");
+  socket.on("stop typing", (room) => {
+    socket.in(room).emit("stop typing");
+  });
+
+  socket.on("new message", (newMessage) => {
+    const chat = newMessage.chat;
+    if (!chat.users) return;
 
     chat.users.forEach((user) => {
-      if (user._id === newMessageReceived.sender._id) return;
-      socket.in(user._id).emit("message received", newMessageReceived);
+      // Send message to all except sender
+      if (user._id !== newMessage.sender._id) {
+        socket.to(user._id).emit("message received", newMessage);
+      }
     });
+
+    // 🟢 Optionally emit back to sender as well for consistency
+    socket.to(newMessage.sender._id).emit("message received", newMessage);
   });
 
   socket.on("disconnect", () => {
-    console.log("🔌 User disconnected");
+    console.log("🔌 Socket disconnected");
   });
 });
 
-// ✅ Start server
+// ✅ Start Cron Job
+runReminderCron(io);
+
+// ✅ Start Server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
 
- runReminderCron(io);
+
+
+// const express = require("express");
+// const dotenv = require("dotenv");
+// const cors = require("cors");
+// const path = require("path");
+// const { Server } = require("socket.io");
+// const http = require("http");
+// const runReminderCron  = require('./reminderCron');
+// const connectDB = require("./config/db");
+// const userRoutes = require("./routes/userRoutes");
+// const chatRoutes = require("./routes/chatRoutes");
+// const messageRoutes = require("./routes/messageRoutes");
+// const reminderRoutes = require("./routes/reminderRoutes");
+// const { notFound, errorHandler } = require("./middleware/errorMiddleware");
+
+// dotenv.config();
+// connectDB();
+
+// const app = express();
+
+// // ✅ Enable CORS for Netlify frontend
+// app.use(cors({
+//   origin: "https://pawan-saw.netlify.app",
+//   credentials: true,
+// }));
+
+// // ✅ Accept JSON
+// app.use(express.json());
+
+// // ✅ Define API routes
+// app.use("/api/user", userRoutes);
+// app.use("/api/chat", chatRoutes);
+// app.use("/api/message", messageRoutes);
+// app.use("/api/reminders", reminderRoutes);
+
+// // ✅ Error handling middleware
+// app.use(notFound);
+// app.use(errorHandler);
+
+// // ✅ Create HTTP server instance
+// const server = http.createServer(app);
+
+// // ✅ Socket.io config
+// const io = new Server(server, {
+//   pingTimeout: 60000,
+//   cors: {
+//     origin: "https://pawan-saw.netlify.app",
+//     credentials: true,
+//   },
+// });
+
+// // ✅ Socket.io event handlers
+// io.on("connection", (socket) => {
+//   console.log("⚡ New socket connection");
+
+//   socket.on("setup", (userData) => {
+//     socket.join(userData._id);
+//     socket.emit("connected");
+//   });
+
+//   socket.on("join chat", (room) => {
+//     socket.join(room);
+//   });
+
+//   socket.on("typing", (room) => socket.in(room).emit("typing"));
+//   socket.on("stop typing", (room) => socket.in(room).emit("stop typing"));
+
+//   socket.on("new message", (newMessageReceived) => {
+//     const chat = newMessageReceived.chat;
+//     if (!chat.users) return console.log("Chat.users not defined");
+
+//     chat.users.forEach((user) => {
+//       if (user._id === newMessageReceived.sender._id) return;
+//       socket.in(user._id).emit("message received", newMessageReceived);
+//     });
+//   });
+
+//   socket.on("disconnect", () => {
+//     console.log("🔌 User disconnected");
+//   });
+// });
+
+// // ✅ Start server
+// const PORT = process.env.PORT || 5000;
+// server.listen(PORT, () => {
+//   console.log(`✅ Server running on port ${PORT}`);
+// });
+
+
+
+// app.set("io", io); // <-- Attach io to express app
+
+// io.on("connection", (socket) => {
+//   console.log("New socket connected");
+
+//   socket.on("setup", (userData) => {
+//     socket.join(userData._id);
+//     socket.emit("connected");
+//   });
+
+//   socket.on("join chat", (room) => {
+//     socket.join(room);
+//   });
+
+//   socket.on("new message", (message) => {
+//     const chat = message.chat;
+//     if (!chat.users) return;
+
+//     chat.users.forEach((user) => {
+//       if (user._id !== message.sender._id) {
+//         socket.to(user._id).emit("message received", message);
+//       }
+//     });
+//   });
+// });
+//  runReminderCron(io);
 
 
 // const express = require("express");
