@@ -3,7 +3,7 @@ console.log(process.env.NODE_ENV)
 const ENDPOINT =
   process.env.NODE_ENV === "development"
     ? "http://localhost:5000"
-    : "https://sawcollabv03.onrender.com";
+    : "https://sawcollabfinal.onrender.com/";
 
 export const socket = io(ENDPOINT, {
   transports: ["websocket"],
