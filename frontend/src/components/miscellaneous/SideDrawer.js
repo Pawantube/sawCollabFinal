@@ -1899,6 +1899,7 @@ import {
   RepeatIcon,
   DeleteIcon,
 } from "@chakra-ui/icons";
+const BASE_URL="https://sawcollabfinal.onrender.com"
 import { FaBrain } from "react-icons/fa";
 import { useHistory } from "react-router-dom";
 import { ChatState } from "../../Context/ChatProvider";
