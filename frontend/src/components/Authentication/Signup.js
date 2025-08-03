@@ -6,7 +6,7 @@ import { useToast } from "@chakra-ui/toast";
 import axios from "axios";
 import { useState } from "react";
 import { useHistory } from "react-router";
-const BASE_URL = "https://your-backend.onrender.com";
+const BASE_URL = "https://sawcollabfinal.onrender.com";
 
 const Signup = () => {
   const [show, setShow] = useState(false);
