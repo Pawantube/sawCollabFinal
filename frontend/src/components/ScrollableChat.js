@@ -1,107 +1,3 @@
-
-// import { Avatar } from "@chakra-ui/avatar";
-// import { Tooltip } from "@chakra-ui/tooltip";
-// import ScrollableFeed from "react-scrollable-feed";
-// import {
-//   isLastMessage,
-//   isSameSender,
-//   isSameSenderMargin,
-//   isSameUser,
-// } from "../config/ChatLogics";
-// import { ChatState } from "../Context/ChatProvider";
-// import ReminderButton from "./reminders/ReminderButton";
-// import "./ScrollableChat.css"; // for hover styling
-
-// const ScrollableChat = ({ messages }) => {
-//   const { user } = ChatState();
-
-//   return (
-//     <ScrollableFeed>
-//       {messages &&
-//         messages.map((m, i) => {
-//           const isOwnMessage = m.sender._id === user._id;
-
-//           return (
-//             <div
-//               className="chat-message-wrapper"
-//               key={m._id}
-//               style={{
-//                 display: "flex",
-//                 justifyContent: isOwnMessage ? "flex-end" : "flex-start",
-//                 alignItems: "center",
-//                 gap: "6px",
-//                 marginBottom: "6px",
-//               }}
-//             >
-//               {!isOwnMessage &&
-//                 (isSameSender(messages, m, i, user._id) ||
-//                   isLastMessage(messages, i, user._id)) && (
-//                   <Tooltip label={m.sender.name} placement="bottom-start" hasArrow>
-//                     <Avatar
-//                       mt="7px"
-//                       mr={1}
-//                       size="sm"
-//                       cursor="pointer"
-//                       name={m.sender.name}
-//                       src={m.sender.pic}
-//                     />
-//                   </Tooltip>
-//               )}
-
-//               <div className="chat-bubble-wrapper">
-//         <span
-//   className="message-bubble"
-//  style={{
-//   backgroundColor: "rgba(255, 255, 255, 0.15)",
-//   backdropFilter: "blur(12px)",
-//   WebkitBackdropFilter: "blur(12px)",
-//   border: "1px solid rgba(255, 255, 255, 0.2)",
-//     color: isOwnMessage ? "#f0f9ff" : "#e6fff2",  // ✅ more visible
-//   borderRadius: "20px",
-//   padding: "8px 12px",
-//   marginLeft: isSameSenderMargin(messages, m, i, user._id),
-//   marginTop: isSameUser(messages, m, i, user._id) ? 3 : 10,
-//   display: "inline-block",
-//   whiteSpace: "pre-wrap",
-//   wordBreak: "break-word",
-//   fontSize: "14px",
-//   maxWidth: "75%",
-//   position: "relative",
-// }}
-
-// >
-//   {m.content}
-
-//   {/* Very small timestamp below message */}
-//   <div
-//     style={{
-//       fontSize: "9px",
-//       color: "#666",
-//       textAlign: "right",
-//       marginTop: "4px",
-//     }}
-//   >
-//     {new Date(m.createdAt).toLocaleTimeString([], {
-//       hour: "2-digit",
-//       minute: "2-digit",
-//     })}
-//   </div>
-// </span>
-				
-
-//                 {/* Bell icon outside the message bubble */}
-//                 <div className="reminder-button-hover">
-//                   <ReminderButton message={m.content} />
-//                 </div>
-//               </div>
-//             </div>
-//           );
-//         })}
-//     </ScrollableFeed>
-//   );
-// };
-
-// export default ScrollableChat;
 import { Avatar } from "@chakra-ui/avatar";
 import { Tooltip } from "@chakra-ui/tooltip";
 import ScrollableFeed from "react-scrollable-feed";
@@ -109,13 +5,23 @@ import { useState } from "react";
 import { isLastMessage, isSameSender, isSameSenderMargin, isSameUser } from "../config/ChatLogics";
 import { ChatState } from "../Context/ChatProvider";
 import ReminderButton from "./reminders/ReminderButton";
-import Picker from 'emoji-picker-react';
-import { MdOutlineDone, MdOutlineRemoveRedEye, MdReply, MdContentCopy, MdDelete } from "react-icons/md";
-import "./ScrollableChat.css";
+import Picker from "emoji-picker-react";
+import {
+  MdOutlineDone,
+  MdOutlineRemoveRedEye,
+  MdReply,
+  MdContentCopy,
+  MdDelete,
+  MdForward,
+  MdStar,
+  MdEdit,
+  MdPushPin
+} from "react-icons/md";
 
-const ScrollableChat = ({ messages, typingUser, onReply, onDelete, onCopy, onReact }) => {
+const ScrollableChat = ({ messages, typingUser, onReply, onDelete, onCopy, onReact, onForward, onPin, onStar, onEdit }) => {
   const { user } = ChatState();
   const [showEmoji, setShowEmoji] = useState(null);
+  const [activeMessage, setActiveMessage] = useState(null);
 
   const getTime = (date) => new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -128,7 +34,6 @@ const ScrollableChat = ({ messages, typingUser, onReply, onDelete, onCopy, onRea
         return (
           <div
             key={m._id}
-            className={`chat-message-wrapper fade-in`}
             style={{
               display: "flex",
               justifyContent: isOwnMessage ? "flex-end" : "flex-start",
@@ -136,26 +41,19 @@ const ScrollableChat = ({ messages, typingUser, onReply, onDelete, onCopy, onRea
               gap: "6px",
               marginBottom: "6px",
               opacity: m.deleted ? 0.5 : 1,
+              position: "relative"
             }}
-            onMouseEnter={() => setShowEmoji(m._id)}
-            onMouseLeave={() => setShowEmoji(null)}
+            onMouseEnter={() => setActiveMessage(m._id)}
+            onMouseLeave={() => setActiveMessage(null)}
           >
             {!isOwnMessage && (isSameSender(messages, m, i, user._id) || isLastMessage(messages, i, user._id)) && (
               <Tooltip label={m.sender.name} placement="bottom-start" hasArrow>
-                <Avatar
-                  mt="7px"
-                  mr={1}
-                  size="sm"
-                  cursor="pointer"
-                  name={m.sender.name}
-                  src={m.sender.pic}
-                />
+                <Avatar mt="7px" mr={1} size="sm" cursor="pointer" name={m.sender.name} src={m.sender.pic} />
               </Tooltip>
             )}
 
-            <div className="chat-bubble-wrapper" style={{ position: "relative" }}>
+            <div style={{ position: "relative" }}>
               <span
-                className="message-bubble"
                 style={{
                   background: isOwnMessage
                     ? "linear-gradient(120deg, #509cf6, #c3e8fd)"
@@ -169,18 +67,13 @@ const ScrollableChat = ({ messages, typingUser, onReply, onDelete, onCopy, onRea
                   maxWidth: "70vw",
                   boxShadow: isOwnMessage ? "0 2px 8px #509cf633" : "0 2px 8px #9bebb522",
                   position: "relative",
-                  transition: "background 0.2s",
+                  display: "inline-block"
                 }}
               >
-                {/* Message Content */}
                 {m.deleted ? <i style={{ opacity: 0.4 }}>Message deleted</i> : m.content}
-                
-                {/* Emoji Reactions */}
                 {m.reactions && m.reactions.length > 0 && (
                   <span style={{ marginLeft: 8, fontSize: "17px" }}>{m.reactions.join(" ")}</span>
                 )}
-
-                {/* Timestamp and Status */}
                 <div
                   style={{
                     fontSize: "9px",
@@ -200,37 +93,49 @@ const ScrollableChat = ({ messages, typingUser, onReply, onDelete, onCopy, onRea
                 </div>
               </span>
 
-              {/* Hover Actions: Reply, Copy, Delete, React */}
-              {showEmoji === m._id && (
-                <div style={{ position: "absolute", right: isOwnMessage ? "-38px" : "auto", left: !isOwnMessage ? "-38px" : "auto", top: "5px", display: "flex", gap: "7px", zIndex: 1 }}>
+              {activeMessage === m._id && (
+                <div style={{ position: "absolute", top: "100%", right: 0, background: "#fff", boxShadow: "0 4px 8px rgba(0,0,0,0.1)", borderRadius: "8px", zIndex: 100 }}>
+                  <button title="Message Info" className="bubble-action" onClick={() => console.log('Message Info')}>
+                    <MdOutlineRemoveRedEye /> Message Info
+                  </button>
                   <button title="Reply" className="bubble-action" onClick={() => onReply && onReply(m)}>
-                    <MdReply />
+                    <MdReply /> Reply
                   </button>
                   <button title="Copy" className="bubble-action" onClick={() => onCopy && onCopy(m.content)}>
-                    <MdContentCopy />
+                    <MdContentCopy /> Copy
+                  </button>
+                  <button title="React" className="bubble-action" onClick={() => setShowEmoji(showEmoji === m._id ? null : m._id)}>
+                    😀 React
+                  </button>
+                  <button title="Forward" className="bubble-action" onClick={() => onForward && onForward(m)}>
+                    <MdForward /> Forward
+                  </button>
+                  <button title="Pin" className="bubble-action" onClick={() => onPin && onPin(m)}>
+                    <MdPushPin /> Pin
+                  </button>
+                  <button title="Star" className="bubble-action" onClick={() => onStar && onStar(m)}>
+                    <MdStar /> Star
+                  </button>
+                  <button title="Edit" className="bubble-action" onClick={() => onEdit && onEdit(m)}>
+                    <MdEdit /> Edit
                   </button>
                   {isOwnMessage && (
                     <button title="Delete" className="bubble-action" onClick={() => onDelete && onDelete(m._id)}>
-                      <MdDelete />
+                      <MdDelete /> Delete
                     </button>
-                  )}
-                  <button title="React" className="bubble-action" onClick={() => setShowEmoji(showEmoji === `${m._id}-emoji` ? null : `${m._id}-emoji`)}>
-                    😀
-                  </button>
-                  {showEmoji === `${m._id}-emoji` && (
-                    <div style={{ position: "absolute", top: "25px", right: 0, zIndex: 10 }}>
-                                           <Picker
-                        onEmojiClick={(event, emojiObject) => {
-                          onReact && onReact(m._id, emojiObject.emoji);
-                          setShowEmoji(null); // Close emoji picker after selection
-                        }}
-                      />
-                    </div>
                   )}
                 </div>
               )}
 
-              {/* Reminder bell */}
+              {showEmoji === m._id && (
+                <div style={{ position: "absolute", top: "110%", right: 0, zIndex: 200 }}>
+                  <Picker onEmojiClick={(event, emojiObject) => {
+                    onReact && onReact(m._id, emojiObject.emoji);
+                    setShowEmoji(null);
+                  }} />
+                </div>
+              )}
+
               <div className="reminder-button-hover">
                 <ReminderButton message={m.content} />
               </div>
@@ -239,7 +144,6 @@ const ScrollableChat = ({ messages, typingUser, onReply, onDelete, onCopy, onRea
         );
       })}
 
-      {/* Typing indicator */}
       {typingUser && (
         <div style={{ textAlign: "left", paddingLeft: 18, opacity: 0.75, margin: "10px 0", color: "#7c89f7" }}>
           <span className="typing-dot">...</span>
@@ -249,5 +153,25 @@ const ScrollableChat = ({ messages, typingUser, onReply, onDelete, onCopy, onRea
     </ScrollableFeed>
   );
 };
+
+// Inline CSS
+const styles = {
+  chatBubbleWrapper: {
+    position: "relative",
+    display: "inline-block",
+    transition: "background 0.2s",
+  },
+  bubbleAction: {
+    display: "flex",
+    alignItems: "center",
+    padding: "6px 10px",
+    border: "none",
+    background: "none",
+    cursor: "pointer",
+    fontSize: "14px",
+    color: "#555",
+    transition: "color 0.3s",
+  },
+}
 
 export default ScrollableChat;
