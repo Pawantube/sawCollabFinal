@@ -1,3 +1,4 @@
+/* SingleChat.js */
 import {
   Box,
   Text,
@@ -16,25 +17,22 @@ import ChatInputBox from "./ChatInputBox";
 import ReminderSidebar from "../components/reminders/ReminderSidebar";
 
 /* ------------------------------------------------------------------
- * URLs – configure with .env for prod, fallback to localhost dev
+ * URLs – env → prod, fallback → localhost
  * ----------------------------------------------------------------*/
-const ENDPOINT =
-  process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
-const API_BASE =
-  process.env.REACT_APP_API_BASE_URL ||
-  "https://sawcollabfinal.onrender.com";
+const ENDPOINT  = process.env.REACT_APP_BACKEND_URL  || "http://localhost:5000";
+const API_BASE  = process.env.REACT_APP_API_BASE_URL || "https://sawcollabfinal.onrender.com";
 
 const SingleChat = ({ fetchAgain, setFetchAgain }) => {
-  /* ------------- state ------------- */
-  const [messages,     setMessages]     = useState([]);
-  const [loading,      setLoading]      = useState(false);
-  const [newMessage,   setNewMessage]   = useState("");
-  const [socketOK,     setSocketOK]     = useState(false);
-  const [typingLocal,  setTypingLocal]  = useState(false);
-  const [typingRemote, setTypingRemote] = useState(false);
-  const [isSidebarOpen,setIsSidebarOpen]= useState(false);
+  /* ---------- state ---------- */
+  const [messages, setMessages]     = useState([]);
+  const [loading,  setLoading]      = useState(false);
+  const [newMsg,   setNewMsg]       = useState("");
+  const [sockOK,   setSockOK]       = useState(false);
+  const [typingMe, setTypingMe]     = useState(false);
+  const [typingU,  setTypingU]      = useState(false);
+  const [sideOpen, setSideOpen]     = useState(false);
 
-  /* ------------- context ----------- */
+  /* ---------- context -------- */
   const {
     selectedChat,
     setSelectedChat,
@@ -43,33 +41,33 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     setNotification,
   } = ChatState();
 
-  /* ------------- refs -------------- */
-  const socketRef        = useRef(null);
-  const selectedChatRef  = useRef(null);   // always points at latest chat
-  const toast            = useToast();
+  /* ---------- refs ----------- */
+  const socketRef       = useRef(null);
+  const selectedChatRef = useRef(null);
+  const toast           = useToast();
 
   /* ------------------------------------------------------------------
-   * One-time socket connection
+   * 1️⃣  socket.io – one-time connection
    * ----------------------------------------------------------------*/
   useEffect(() => {
     socketRef.current = io(ENDPOINT, { transports: ["websocket"] });
 
     socketRef.current.emit("setup", user);
 
-    socketRef.current.on("connected",      () => setSocketOK(true));
-    socketRef.current.on("typing",         () => setTypingRemote(true));
-    socketRef.current.on("stop typing",    () => setTypingRemote(false));
+    socketRef.current.on("connected",   () => setSockOK(true));
+    socketRef.current.on("typing",      () => setTypingU(true));
+    socketRef.current.on("stop typing", () => setTypingU(false));
 
     return () => socketRef.current.disconnect();
   }, [user]);
 
   /* ------------------------------------------------------------------
-   * Load messages whenever chat changes
+   * 2️⃣  fetch messages whenever chat changes
    * ----------------------------------------------------------------*/
   const loadMessages = useCallback(async () => {
     if (!selectedChat) return;
-    setLoading(true);
 
+    setLoading(true);
     try {
       const { data } = await axios.get(
         `${API_BASE}/api/message/${selectedChat._id}`,
@@ -81,7 +79,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
       // join socket room for this chat
       socketRef.current.emit("join chat", selectedChat._id);
-    } catch (e) {
+    } catch (err) {
       setLoading(false);
       toast({
         title: "Failed to load messages",
@@ -93,25 +91,24 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   }, [selectedChat, user.token, toast]);
 
   useEffect(() => {
-    selectedChatRef.current = selectedChat; // keep ref hot
+    selectedChatRef.current = selectedChat;
     loadMessages();
-    setTypingRemote(false);
+    setTypingU(false);
   }, [selectedChat, loadMessages]);
 
   /* ------------------------------------------------------------------
-   * Incoming messages
+   * 3️⃣  incoming socket events
    * ----------------------------------------------------------------*/
   useEffect(() => {
     const handleIncoming = (msg) => {
-      // If the message belongs to a different chat -> notification
-      if (!selectedChatRef.current ||
-          selectedChatRef.current._id !== msg.chat._id) {
-
-        setNotification((prev) => {
-          // avoid duplicates
-          if (prev.some((n) => n._id === msg._id)) return prev;
-          return [msg, ...prev];
-        });
+      if (
+        !selectedChatRef.current ||
+        selectedChatRef.current._id !== msg.chat._id
+      ) {
+        // other chat ⇒ notification
+        setNotification((prev) =>
+          prev.some((n) => n._id === msg._id) ? prev : [msg, ...prev]
+        );
         setFetchAgain((p) => !p);
       } else {
         setMessages((prev) => [...prev, msg]);
@@ -123,41 +120,45 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   }, [setNotification, setFetchAgain]);
 
   /* ------------------------------------------------------------------
-   * Typing indicator – debounce stop-typing
+   * 4️⃣  typing indicator – debounced stop
    * ----------------------------------------------------------------*/
   const stopTypingDebounced = useRef(
-    debounce((id) => {
-      socketRef.current.emit("stop typing", id);
-      setTypingLocal(false);
+    debounce((chatId) => {
+      socketRef.current.emit("stop typing", chatId);
+      setTypingMe(false);
     }, 3000)
   ).current;
 
   /* ------------------------------------------------------------------
-   * Send message
+   * 5️⃣  send message helpers
    * ----------------------------------------------------------------*/
-  const sendMessage = async () => {
-  const txt = newMessage.trim();
-  if (!txt) return;
-
-   stopTypingDebounced.cancel();
-  socketRef.current.emit("stop typing", selectedChat._id);
+  const reallySendMessage = async (txt) => {
+    stopTypingDebounced.cancel();
+    socketRef.current.emit("stop typing", selectedChat._id);
 
     try {
-    const { data } = await axios.post(
-      `${API_BASE}/api/message`,
-      { content: txt, chatId: selectedChat },
-      { headers: { "Content-Type": "application/json", Authorization: `Bearer ${user.token}` } }
-    );
+      const { data } = await axios.post(
+        `${API_BASE}/api/message`,
+        { content: txt, chatId: selectedChat },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization  : `Bearer ${user.token}`,
+          },
+        }
+      );
 
-    setNewMessage("");
+      // ① clear box
+      setNewMsg("");
 
-      // 1️⃣ Update local UI immediately
+      // ② local echo
       setMessages((prev) => [...prev, data]);
 
-     
+      // ③ broadcast
+      socketRef.current.emit("new message", data);
     } catch (err) {
       toast({
-        title: "Unable to send message",
+        title : "Unable to send message",
         status: "error",
         duration: 4000,
         isClosable: true,
@@ -165,22 +166,36 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   };
 
+  const sendMessage = () => {
+    const txt = newMsg.trim();
+    if (txt) reallySendMessage(txt);
+  };
+
   /* ------------------------------------------------------------------
-   * Handle text-box changes / typing indicator
+   * 6️⃣  input handlers
    * ----------------------------------------------------------------*/
   const handleInputChange = (e) => {
-    setNewMessage(e.target.value);
+    setNewMsg(e.target.value);
 
-    if (!socketOK) return;
+    if (!sockOK) return;
 
-    if (!typingLocal) {
-      setTypingLocal(true);
+    if (!typingMe) {
+      setTypingMe(true);
       socketRef.current.emit("typing", selectedChat._id);
     }
     stopTypingDebounced(selectedChat._id);
   };
 
-  /* ==========================  RENDER  ========================== */
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  /* ------------------------------------------------------------------
+   * 7️⃣  render
+   * ----------------------------------------------------------------*/
   if (!selectedChat) {
     return (
       <Box
@@ -199,7 +214,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
   return (
     <Box display="flex" flex="1" h="100vh" overflow="hidden" w="100%">
-      {/* ---------------- Chat area ---------------- */}
+      {/* ------------ Chat area ------------ */}
       <Box flex="1" display="flex" flexDirection="column">
         <ChatHeader
           user={user}
@@ -220,25 +235,26 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
           />
         ) : (
           <>
-            <ChatMessages messages={messages} isTyping={typingRemote} />
+            <ChatMessages messages={messages} isTyping={typingU} />
 
             <ChatInputBox
-              newMessage={newMessage}
+              value={newMsg}
               onChange={handleInputChange}
-              sendMessage={sendMessage}
-              isTyping={typingRemote}
-              socketConnected={socketOK}
+              onKeyDown={handleKeyDown}
+              onSend={sendMessage}
+              isTyping={typingU}
+              socketConnected={sockOK}
             />
           </>
         )}
       </Box>
 
-      {/* ---------------- Reminder sidebar (group chats only) ---------------- */}
+      {/* ---------- Reminder sidebar (group chats) ---------- */}
       {selectedChat.isGroupChat && (
         <ReminderSidebar
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-          onOpen={() => setIsSidebarOpen(true)}
+          isOpen={sideOpen}
+          onClose={() => setSideOpen(false)}
+          onOpen={() => setSideOpen(true)}
         />
       )}
     </Box>
