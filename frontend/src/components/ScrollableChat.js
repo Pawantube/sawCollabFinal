@@ -109,24 +109,21 @@ import { useState } from "react";
 import { isLastMessage, isSameSender, isSameSenderMargin, isSameUser } from "../config/ChatLogics";
 import { ChatState } from "../Context/ChatProvider";
 import ReminderButton from "./reminders/ReminderButton";
-import Picker from 'emoji-picker-react'; // npm i emoji-picker-react
+import Picker from 'emoji-picker-react';
 import { MdOutlineDone, MdOutlineRemoveRedEye, MdReply, MdContentCopy, MdDelete } from "react-icons/md";
-import "./ScrollableChat.css"; // ✨ Update this CSS for smooth animations & hover effects!
-
-const getTime = (date) =>
-  new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+import "./ScrollableChat.css";
 
 const ScrollableChat = ({ messages, typingUser, onReply, onDelete, onCopy, onReact }) => {
   const { user } = ChatState();
-  const [showEmoji, setShowEmoji] = useState(null); // messageId or null
+  const [showEmoji, setShowEmoji] = useState(null);
+
+  const getTime = (date) => new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
     <ScrollableFeed>
       {messages && messages.map((m, i) => {
         const isOwnMessage = m.sender._id === user._id;
-        // Replace below with your actual logic, or fetch from message object
         const isSeen = m.seen?.includes(user._id) || isOwnMessage;
-        const showActions = !m.deleted;
 
         return (
           <div
@@ -175,17 +172,15 @@ const ScrollableChat = ({ messages, typingUser, onReply, onDelete, onCopy, onRea
                   transition: "background 0.2s",
                 }}
               >
-                {/* Message Text / (support soft deleted message) */}
-                {m.deleted
-                  ? <i style={{ opacity: 0.4 }}>Message deleted</i>
-                  : m.content}
-                  
-                {/* Emoji Reaction (simple) */}
+                {/* Message Content */}
+                {m.deleted ? <i style={{ opacity: 0.4 }}>Message deleted</i> : m.content}
+                
+                {/* Emoji Reactions */}
                 {m.reactions && m.reactions.length > 0 && (
-                  <span style={{ marginLeft: 8, fontSize: "17px" }}>
-                    {m.reactions.join(" ")}
-                  </span>
+                  <span style={{ marginLeft: 8, fontSize: "17px" }}>{m.reactions.join(" ")}</span>
                 )}
+
+                {/* Timestamp and Status */}
                 <div
                   style={{
                     fontSize: "9px",
@@ -205,8 +200,8 @@ const ScrollableChat = ({ messages, typingUser, onReply, onDelete, onCopy, onRea
                 </div>
               </span>
 
-              {/* Hover actions: Reply, Copy, Delete */}
-              {showActions && showEmoji === m._id && (
+              {/* Hover Actions: Reply, Copy, Delete, React */}
+              {showEmoji === m._id && (
                 <div style={{ position: "absolute", right: isOwnMessage ? "-38px" : "auto", left: !isOwnMessage ? "-38px" : "auto", top: "5px", display: "flex", gap: "7px", zIndex: 1 }}>
                   <button title="Reply" className="bubble-action" onClick={() => onReply && onReply(m)}>
                     <MdReply />
@@ -219,16 +214,17 @@ const ScrollableChat = ({ messages, typingUser, onReply, onDelete, onCopy, onRea
                       <MdDelete />
                     </button>
                   )}
-                  {/* Emoji picker trigger */}
                   <button title="React" className="bubble-action" onClick={() => setShowEmoji(showEmoji === `${m._id}-emoji` ? null : `${m._id}-emoji`)}>
                     😀
                   </button>
                   {showEmoji === `${m._id}-emoji` && (
                     <div style={{ position: "absolute", top: "25px", right: 0, zIndex: 10 }}>
-                      <Picker onEmojiClick={(e, emoji) => {
-                        onReact && onReact(m._id, emoji.emoji);
-                        setShowEmoji(null);
-                      }} />
+                                           <Picker
+                        onEmojiClick={(event, emojiObject) => {
+                          onReact && onReact(m._id, emojiObject.emoji);
+                          setShowEmoji(null); // Close emoji picker after selection
+                        }}
+                      />
                     </div>
                   )}
                 </div>
