@@ -10,17 +10,11 @@ import { Button } from "@chakra-ui/react";
 import { ChatState } from "../Context/ChatProvider";
 import { socket } from "../config/socket";
 import { Avatar } from "@chakra-ui/avatar";
-import { useRouter } from "next/router";
-
-const BASE_URL = "https://sawcollabfinal.onrender.com" || "http://localhost:5000";
-
-const MyChats = ({ fetchAgain, setFetchAgain, messages, setMessages, selectedChat }) => {
+const BASE_URL="https://sawcollabfinal.onrender.com" || "";
+const MyChats = ({ fetchAgain }) => {
   const [loggedUser, setLoggedUser] = useState();
-  const { selectedChat: currentSelectedChat, user, chats, setChats } = ChatState();
+  const { selectedChat, setSelectedChat, user, chats, setChats } = ChatState();
   const toast = useToast();
-  const router = useRouter();
-
-  let selectedChatCompare = null; // Initialize selectedChatCompare
 
   const fetchChats = async () => {
     try {
@@ -47,22 +41,17 @@ const MyChats = ({ fetchAgain, setFetchAgain, messages, setMessages, selectedCha
   useEffect(() => {
     const userInfo = JSON.parse(localStorage.getItem("userInfo"));
     setLoggedUser(userInfo);
-    fetchChats(); // This loads the initial chats
-    socket.emit("setup", user);
+    fetchChats();
 
-    // ✅ Listen for incoming messages
-    socket.on("message received", (newMessage) => {
-      if (!selectedChatCompare || selectedChatCompare._id !== newMessage.chat._id) {
-        // Optional: show notification or refresh chat list
-        setFetchAgain(!fetchAgain);
-      } else {
-        setMessages((prevMessages) => [...prevMessages, newMessage]);
-      }
+    socket.emit("setup", user);
+    socket.on("message received", () => {
+      fetchChats();
     });
 
     return () => {
       socket.off("message received");
     };
+    // eslint-disable-next-line
   }, [fetchAgain]);
 
   return (
@@ -97,7 +86,6 @@ const MyChats = ({ fetchAgain, setFetchAgain, messages, setMessages, selectedCha
             bg="rgba(255, 255, 255, 0.7)"
             fontSize={{ base: "17px", md: "10px", lg: "17px" }}
             rightIcon={<AddIcon />}
-            onClick={() => router.push("/new-group")} // Assuming "/new-group" is your route for creating a new group chat
           >
             New Group
           </Button>
@@ -121,10 +109,7 @@ const MyChats = ({ fetchAgain, setFetchAgain, messages, setMessages, selectedCha
 
               return (
                 <Box
-                  onClick={() => {
-                    setSelectedChat(chat);
-                    selectedChatCompare = chat; // Update selectedChatCompare
-                  }}
+                  onClick={() => setSelectedChat(chat)}
                   cursor="pointer"
                   bg={
                     selectedChat === chat
@@ -182,8 +167,6 @@ const MyChats = ({ fetchAgain, setFetchAgain, messages, setMessages, selectedCha
 };
 
 export default MyChats;
-
-
 // import { AddIcon } from "@chakra-ui/icons";
 // import { Box, Stack, Text, HStack } from "@chakra-ui/layout";
 // import { useToast } from "@chakra-ui/toast";

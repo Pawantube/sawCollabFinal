@@ -1,72 +1,90 @@
+// Import necessary modules
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const path = require("path");
 const { Server } = require("socket.io");
 const http = require("http");
+
+// Import database connection and cron job functions
 const connectDB = require("./config/db");
 const runReminderCron = require("./reminderCron");
 
+// Import route handlers
 const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const reminderRoutes = require("./routes/reminderRoutes");
+
+// Import middleware for error handling
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
+// Load environment variables
 dotenv.config();
+
+// Connect to the database
 connectDB();
 
+// Initialize express app
 const app = express();
 
-// ✅ CORS
+// Enable CORS for specific origin
 app.use(
   cors({
     origin: "https://pawan-saw.netlify.app",
-    credentials: true,
+    credentials: true, // Allow credentials
   })
 );
 
-// ✅ Body Parser
+// Parse incoming JSON requests
 app.use(express.json());
 
-// ✅ API Routes
+// Define API routes
 app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/message", messageRoutes);
 app.use("/api/reminders", reminderRoutes);
 
-// ✅ Error Handlers
+// Health check endpoint
+app.get("/", (req, res) => {
+  res.send("API is running...");
+});
+
+// Add custom error handlers
 app.use(notFound);
 app.use(errorHandler);
 
-// ✅ Create HTTP Server
+// Create an HTTP server using the express app
 const server = http.createServer(app);
 
-// ✅ Attach Socket.io
+// Attach Socket.io to the server for real-time communication
 const io = new Server(server, {
-  pingTimeout: 60000,
+  pingTimeout: 60000, // Set ping timeout
   cors: {
-    origin: "https://pawan-saw.netlify.app",
+    origin: "https://pawan-saw.netlify.app", // Allow CORS for specific origin
     credentials: true,
   },
 });
 
-// ✅ Store io in app for cron job access
+// Store io instance in app for access in cron jobs
 app.set("io", io);
 
-// ✅ Socket.io Handlers
+// Handle Socket.io events
 io.on("connection", (socket) => {
   console.log("⚡ New socket connection");
 
+  // Setup user by joining their room
   socket.on("setup", (userData) => {
     socket.join(userData._id);
     socket.emit("connected");
   });
 
+  // Join chat room
   socket.on("join chat", (room) => {
     socket.join(room);
   });
 
+  // Emit typing events to room
   socket.on("typing", (room) => {
     socket.in(room).emit("typing");
   });
@@ -75,34 +93,40 @@ io.on("connection", (socket) => {
     socket.in(room).emit("stop typing");
   });
 
+  // Handle new message event
   socket.on("new message", (newMessage) => {
     const chat = newMessage.chat;
     if (!chat.users) return;
 
     chat.users.forEach((user) => {
-      // Send message to all except sender
+      // Send message to all users except the sender
       if (user._id !== newMessage.sender._id) {
         socket.to(user._id).emit("message received", newMessage);
       }
     });
 
-    // 🟢 Optionally emit back to sender as well for consistency
+    // Optionally emit to sender for consistency
     socket.to(newMessage.sender._id).emit("message received", newMessage);
   });
 
+  // Handle socket disconnection
   socket.on("disconnect", () => {
     console.log("🔌 Socket disconnected");
   });
 });
 
-// ✅ Start Cron Job
+// Start the reminder cron job with access to Socket.io
 runReminderCron(io);
 
-// ✅ Start Server
+// Start the server on the specified port
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
+
+
+
+
 
 
 

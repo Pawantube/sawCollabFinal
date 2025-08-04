@@ -1,4 +1,9 @@
 
+
+
+
+
+
 import { Box } from "@chakra-ui/layout";
 import { useEffect, useState } from "react";
 import Chatbox from "../components/Chatbox";
@@ -6,34 +11,45 @@ import MyChats from "../components/MyChats";
 import SideDrawer from "../components/miscellaneous/SideDrawer";
 import { ChatState } from "../Context/ChatProvider";
 import ReminderListModal from "../components/reminders/ReminderListModal";
-import { useRouter } from "next/router";
+
+import {
+	triggerReminderNotification,
+	registerServiceWorker,
+	requestNotificationPermission,
+	notificationHelpers,
+  } from "../utils/notificationService"
+  
 
 const Chatpage = () => {
   const [fetchAgain, setFetchAgain] = useState(false);
   const { user } = ChatState();
-  const router = useRouter();
 
   useEffect(() => {
-    // Initialize notifications if user is logged in
-    if (user) {
-      const initNotifications = async () => {
-        try {
-          await registerServiceWorker();
-
-          if (notificationHelpers.isSupported()) {
-            const isGranted = await requestNotificationPermission();
-            if (!isGranted) {
-              console.warn("🔕 Notification permission not granted.");
-            }
-          }
-        } catch (error) {
-          console.error("Notification setup failed:", error);
-        }
-      };
-
-      initNotifications();
-    }
-  }, [user]);
+	const initNotifications = async () => {
+	  try {
+		await registerServiceWorker();
+  
+		if (notificationHelpers.isSupported()) {
+		  const isGranted = await requestNotificationPermission();
+		  if (!isGranted) {
+			console.warn("🔕 Notification permission not granted.");
+		  }
+		}
+	  } catch (error) {
+		console.error("Notification setup failed:", error);
+	  }
+	};
+	const setVh = () => {
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+  };
+  setVh();
+  window.addEventListener('resize', setVh);
+  return () => window.removeEventListener('resize', setVh);
+  
+	initNotifications();
+  }, []);
+  
 
   const triggerTestReminder = () => {
     if (!("Notification" in window)) {
@@ -74,19 +90,32 @@ const Chatpage = () => {
   };
 
   return (
-    <div style={{ width: "100vw", height: "100vh", background: "linear-gradient(...)" }}>
-      {user && <SideDrawer />}
+    <div style={{ width: "100vw" ,height:"100vh",background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        display: "flex",
+        flexDirection: "column",}}>
+     
 
-      <Box
-        d="flex"
-        justifyContent="space-between"
-        bgGradient="linear(to-r, purple.800, blue.500)"
-        w="100%"
-        p="10px"
-        display="flex"
+      {user && <SideDrawer />}
+	   {/* 🔘 Button to trigger a test reminder */}
+	
+      
+	   
+ 
+
+
+      <Box d="flex" justifyContent="space-between" bgGradient="linear(to-r, purple.800, blue.500)" w="100%"  p="10px"     display="flex" 
+      
         h="91.5vh"
-      >
-        {user && <MyChats fetchAgain={fetchAgain} setFetchAgain={setFetchAgain} />}
+       
+        sx={{
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          background: "rgba(255, 255, 255, 0.1)",
+          border: "1px solid rgba(255, 255, 255, 0.2)",
+          borderRadius: "10px",
+          boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.37)",
+        }} >
+        {user && <MyChats fetchAgain={fetchAgain} />}
         {user && <Chatbox fetchAgain={fetchAgain} setFetchAgain={setFetchAgain} />}
         {user && <ReminderListModal />}
       </Box>
@@ -95,8 +124,6 @@ const Chatpage = () => {
 };
 
 export default Chatpage;
-
-
 
 // import { Box } from "@chakra-ui/layout";
 // import { useState } from "react";
