@@ -1,295 +1,87 @@
 const asyncHandler = require("express-async-handler");
-const Message  = require("../models/messageModel");
-const Chat     = require("../models/chatModel");
-const User     = require("../models/userModel");
+const Message = require("../models/messageModel");
+const Chat = require("../models/chatModel");
+const User = require("../models/userModel"); // Assuming User model is needed for population
 
-// GET  /api/message/:chatId  – return all messages in a chat
+// @description Get all messages for a specific chat
+// @route GET /api/message/:chatId
+// @access Protected (requires user authentication)
 const allMessages = asyncHandler(async (req, res) => {
-  const msgs = await Message.find({ chat: req.params.chatId })
-    .populate("sender", "name pic email")
-    .populate({
-      path:   "chat",
-      select: "_id users",
-      populate: { path: "users", select: "name pic email" },
-    });
+  try {
+    // Find all messages belonging to the given chatId
+    const messages = await Message.find({ chat: req.params.chatId })
+      .populate("sender", "name pic email") // Populate sender details
+      .populate({
+        path: "chat", // Populate the chat itself
+        select: "_id users", // Select relevant fields from chat
+        populate: { path: "users", select: "name pic email" }, // Populate users within the chat
+      })
+      .lean(); // Use .lean() for faster query results if you don't need Mongoose document methods
 
-  res.json(msgs);
+    res.status(200).json(messages);
+  } catch (error) {
+    // If an error occurs, send a 400 response and throw a more specific error
+    console.error(`Error fetching messages for chat ${req.params.chatId}:`, error.message);
+    res.status(400);
+    throw new Error("Failed to fetch messages. Please try again later.");
+  }
 });
 
-// POST /api/message  – create, populate, broadcast
+// @description Send a new message
+// @route POST /api/message
+// @access Protected (requires user authentication)
 const sendMessage = asyncHandler(async (req, res) => {
   const { content, chatId } = req.body;
 
+  // Basic input validation
   if (!content || !chatId) {
-    return res.status(400).json({ message: "content & chatId are required" });
+    console.log("Invalid data passed into request: content or chatId missing.");
+    return res.status(400).json({ message: "Content and Chat ID are required to send a message." });
   }
 
-  // 1️⃣  create
-  let msg = await Message.create({
-    sender: req.user._id,
-    content,
-    chat  : chatId,
-  });
+  try {
+    // 1️⃣ Create the new message document in the database
+    let newMessage = {
+      sender: req.user._id, // Assumes req.user is populated by authentication middleware
+      content: content,
+      chat: chatId,
+    };
 
-  // 2️⃣  populate in a single round-trip
-  msg = await msg.populate([
-    { path: "sender", select: "name pic email" },
-    { path: "chat",   populate: { path: "users", select: "name pic email" } },
-  ]);
+    let createdMessage = await Message.create(newMessage);
 
-  // 3️⃣  update latestMessage in chat
-  await Chat.findByIdAndUpdate(chatId, { latestMessage: msg });
+    // 2️⃣ Populate sender and chat details for the message
+    // Perform population to get full sender and chat (with users) details
+    createdMessage = await createdMessage.populate([
+      { path: "sender", select: "name pic email" },
+      {
+        path: "chat",
+        populate: { path: "users", select: "name pic email" },
+      },
+    ]);
 
-  // 4️⃣  emit to everyone who joined the chat room
-  const io = req.app.get("io");
-  if (io) io.to(chatId.toString()).emit("message received", msg);
+    // 3️⃣ Update the latestMessage field in the corresponding chat
+    await Chat.findByIdAndUpdate(chatId, { latestMessage: createdMessage._id }, { new: true });
 
-  // 5️⃣  respond to sender
-  res.json(msg);
+    // 4️⃣ Emit the new message via Socket.IO to the relevant chat room
+    // The `io` instance is stored on the Express app (`req.app.get("io")`)
+    const io = req.app.get("io");
+    if (io) {
+      // Emit to the specific chat room. Sockets in this room will receive it.
+      // The server.js 'new message' listener will handle emitting to individual user rooms
+      // for users who are online but not actively in this chat's room (e.g., for notifications).
+      io.to(chatId.toString()).emit("message received", createdMessage);
+      console.log(`Socket.IO emitted 'message received' to chat room: ${chatId}`);
+    } else {
+      console.warn("Socket.IO instance not found on app. Message not broadcasted.");
+    }
+
+    // 5️⃣ Respond to the client (sender) with the created and populated message
+    res.status(201).json(createdMessage); // 201 Created status for successful resource creation
+  } catch (error) {
+    console.error("Error sending message:", error.message);
+    res.status(500); // Use 500 for unexpected server errors
+    throw new Error("Failed to send message due to a server error. " + error.message);
+  }
 });
 
 module.exports = { allMessages, sendMessage };
-
-// const asyncHandler = require("express-async-handler");
-// const Message  = require("../models/messageModel");
-// const Chat     = require("../models/chatModel");
-// const User     = require("../models/userModel");
-
-// // GET  /api/message/:chatId  – return all messages in a chat
-// const allMessages = asyncHandler(async (req, res) => {
-//   const msgs = await Message.find({ chat: req.params.chatId })
-//     .populate("sender", "name pic email")
-//     .populate({
-//       path:   "chat",
-//       select: "_id users",
-//       populate: { path: "users", select: "name pic email" },
-//     });
-
-//   res.json(msgs);
-// });
-
-// // POST /api/message  – create, populate, broadcast
-// const sendMessage = asyncHandler(async (req, res) => {
-//   const { content, chatId } = req.body;
-
-//   if (!content || !chatId) {
-//     return res.status(400).json({ message: "content & chatId are required" });
-//   }
-
-//   // 1️⃣  create
-//   let msg = await Message.create({
-//     sender: req.user._id,
-//     content,
-//     chat  : chatId,
-//   });
-
-//   // 2️⃣  populate in a single round-trip
-//   msg = await msg.populate([
-//     { path: "sender", select: "name pic email" },
-//     { path: "chat",   populate: { path: "users", select: "name pic email" } },
-//   ]);
-
-//   // 3️⃣  update latestMessage in chat
-//   await Chat.findByIdAndUpdate(chatId, { latestMessage: msg });
-
-//   // 4️⃣  emit to everyone who joined the chat room
-//   const io = req.app.get("io");
-//   if (io) io.to(chatId.toString()).emit("message received", msg);
-
-//   // 5️⃣  respond to sender
-//   res.json(msg);
-// });
-
-// module.exports = { allMessages, sendMessage };
-
-
-// // controllers/messageController.js
-// const asyncHandler = require("express-async-handler");
-// const Message  = require("../models/messageModel");
-// const Chat     = require("../models/chatModel");
-// const User     = require("../models/userModel");
-
-// /**
-//  * GET  /api/message/:chatId
-//  * Return all messages for a chat
-//  */
-// const allMessages = asyncHandler(async (req, res) => {
-//   const chatId = req.params.chatId;
-
-//   const messages = await Message.find({ chat: chatId })
-//     .populate("sender", "name pic email")
-//     .populate({
-//       path:   "chat",
-//       select: "_id users",
-//       populate: { path: "users", select: "name pic email" },
-//     })
-//     .lean();
-
-//   res.json(messages);
-// });
-
-// /**
-//  * POST /api/message
-//  * Create a new message, update latestMessage, broadcast to socket room
-//  */
-// const sendMessage = asyncHandler(async (req, res) => {
-//   const { content, chatId } = req.body;
-
-//   if (!content || !chatId) {
-//     return res.status(400).json({ message: "content & chatId required" });
-//   }
-
-//   // 1️⃣  Persist
-//   let message = await Message.create({
-//     sender : req.user._id,
-//     content,
-//     chat   : chatId,
-//   });
-
-//   // 2️⃣  Populate (single DB round-trip)
-//   message = await message.populate([
-//     { path: "sender", select: "name pic email" },
-//     {
-//       path     : "chat",
-//       populate : { path: "users", select: "name pic email" },
-//     },
-//   ]);
-
-//   // 3️⃣  Update chat.latestMessage
-//   await Chat.findByIdAndUpdate(chatId, { latestMessage: message });
-
-//   // 4️⃣  Emit to every socket already joined to this chat room
-//   const io = req.app.get("io");
-//   if (io) {
-//     io.to(chatId.toString()).emit("message received", message);
-//   }
-
-//   // 5️⃣  Respond to sender
-//   res.json(message);
-// });
-
-// module.exports = { allMessages, sendMessage };
-
-// const asyncHandler = require("express-async-handler");
-// const Message = require("../models/messageModel");
-// const User = require("../models/userModel");
-// const Chat = require("../models/chatModel");
-
-// //@description     Get all Messages
-// //@route           GET /api/Message/:chatId
-// //@access          Protected
-// const allMessages = asyncHandler(async (req, res) => {
-//   try {
-//     const messages = await Message.find({ chat: req.params.chatId })
-//       .populate("sender", "name pic email")
-//       .populate("chat");
-//     res.json(messages);
-//   } catch (error) {
-//     res.status(400);
-//     throw new Error(error.message);
-//   }
-// });
-// const getRemindersForChat = asyncHandler(async (req, res) => {
-//   const chatId = req.params.chatId;
-//   const userId = req.user._id;
-//   const status = req.query.status || "active";
-//   const now = new Date();
-
-//   const reminders = await Reminder.find({
-//     chat: chatId,
-//     type: "us",
-//   }).sort({ dueAt: 1 });
-
-//   const filtered = reminders.filter((reminder) => {
-//     const snoozeEntry = reminder.snoozedBy.find(
-//       (s) => s.user.toString() === userId.toString()
-//     );
-//     const isSnoozed = snoozeEntry && new Date(snoozeEntry.until) > now;
-//     const isMarkedDone = reminder.markedDoneBy.some(
-//       (id) => id.toString() === userId.toString()
-//     );
-
-//     if (status === "done") return isMarkedDone;
-//     return !isSnoozed && !isMarkedDone;
-//   });
-
-//   res.json(filtered);
-// });
-
-// //@description     Create New Message
-// //@route           POST /api/Message/
-// //@access          Protected
-// // const sendMessage = asyncHandler(async (req, res) => {
-// //   const { content, chatId } = req.body;
-
-// //   if (!content || !chatId) {
-// //     console.log("Invalid data passed into request");
-// //     return res.sendStatus(400);
-// //   }
-
-// //   var newMessage = {
-// //     sender: req.user._id,
-// //     content: content,
-// //     chat: chatId,
-// //   };
-
-// //   try {
-// //     var message = await Message.create(newMessage);
-
-// //     message = await message.populate("sender", "name pic").execPopulate();
-// //     message = await message.populate("chat").execPopulate();
-// //     message = await User.populate(message, {
-// //       path: "chat.users",
-// //       select: "name pic email",
-// //     });
-
-// //     await Chat.findByIdAndUpdate(req.body.chatId, { latestMessage: message });
-
-// //     res.json(message);
-// //   } catch (error) {
-// //     res.status(400);
-// //     throw new Error(error.message);
-// //   }
-// // });
-
-// const sendMessage = asyncHandler(async (req, res) => {
-//   const { content, chatId } = req.body;
-
-//   if (!content || !chatId) {
-//     console.log("Invalid data passed into request");
-//     return res.sendStatus(400);
-//   }
-
-//   let newMessage = {
-//     sender: req.user._id,
-//     content,
-//     chat: chatId,
-//   };
-
-//   try {
-//     let message = await Message.create(newMessage);
-
-//     message = await message.populate("sender", "name pic").execPopulate();
-//     message = await message.populate("chat").execPopulate();
-//     message = await User.populate(message, {
-//       path: "chat.users",
-//       select: "name pic email",
-//     });
-
-//     await Chat.findByIdAndUpdate(chatId, { latestMessage: message });
-
-//     // ✅ Emit to chat room instead of individual users
-//     const io = req.app.get("io");
-//     if (io) {
-//       io.to(chatId).emit("message received", message);
-//     }
-
-//     res.json(message);
-//   } catch (error) {
-//     res.status(400);
-//     throw new Error(error.message);
-//   }
-// });
-
-
-// module.exports = { allMessages, sendMessage };

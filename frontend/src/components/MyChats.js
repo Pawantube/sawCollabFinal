@@ -1,22 +1,43 @@
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 import { AddIcon } from "@chakra-ui/icons";
 import { Box, Stack, Text, HStack } from "@chakra-ui/layout";
 import { useToast } from "@chakra-ui/toast";
-import axios from "axios";
-import { useEffect, useState } from "react";
-import { getSender } from "../config/ChatLogics";
+import { Avatar } from "@chakra-ui/avatar";
+import { Button } from "@chakra-ui/react";
+
+import { ChatState } from "../Context/ChatProvider";
 import ChatLoading from "./ChatLoading";
 import GroupChatModal from "./miscellaneous/GroupChatModal";
-import { Button } from "@chakra-ui/react";
-import { ChatState } from "../Context/ChatProvider";
-import { socket } from "../config/socket";
-import { Avatar } from "@chakra-ui/avatar";
-const BASE_URL="https://sawcollabfinal.onrender.com" || "";
+import { getSenderFull } from "../config/ChatLogics"; // Using getSenderFull for more flexibility
+
+// Use an environment variable for the backend API base URL
+const BASE_URL = process.env.NODE_ENV === "development"
+  ? "http://localhost:5000"
+  : process.env.REACT_APP_BACKEND_URL;
+
+// No longer need to import `socket` here; we use the one from ChatContext.
+
 const MyChats = ({ fetchAgain }) => {
-  const [loggedUser, setLoggedUser] = useState();
-  const { selectedChat, setSelectedChat, user, chats, setChats } = ChatState();
+  // Get all necessary state from the central ChatContext
+  const {
+    user,
+    chats,
+    setChats,
+    selectedChat,
+    setSelectedChat,
+    socket,
+    notification, // Listen for changes to notifications
+    setNotification,
+  } = ChatState();
+
   const toast = useToast();
+  const [loading, setLoading] = useState(false); // Local loading state for fetching chats
 
   const fetchChats = async () => {
+    if (!user) return; // Guard clause if user is not yet available
+    setLoading(true);
+
     try {
       const config = {
         headers: {
@@ -35,57 +56,90 @@ const MyChats = ({ fetchAgain }) => {
         isClosable: true,
         position: "bottom-left",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Effect to fetch initial chats and handle real-time updates
   useEffect(() => {
-    const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-    setLoggedUser(userInfo);
+    // Initial fetch when the component mounts or `fetchAgain` is triggered
     fetchChats();
+  }, [user, fetchAgain]); // Re-run if user logs in or a manual refetch is requested
 
-    socket.emit("setup", user);
-    socket.on("message received", () => {
-      fetchChats();
-    });
+  // Effect to handle incoming messages in real-time to update the chat list
+  useEffect(() => {
+    if (!socket) return; // Ensure socket is available
+
+    const messageReceivedHandler = (newMessage) => {
+      // Logic to update the chat list when a new message arrives
+      setChats((prevChats) => {
+        if (!prevChats) return [];
+
+        const chatIndex = prevChats.findIndex((c) => c._id === newMessage.chat._id);
+
+        if (chatIndex > -1) {
+          // If chat is already in the list, update its latest message and move it to the top
+          const updatedChat = {
+            ...prevChats[chatIndex],
+            latestMessage: newMessage,
+          };
+          const otherChats = prevChats.filter((c) => c._id !== newMessage.chat._id);
+          return [updatedChat, ...otherChats]; // Puts the updated chat at the top
+        } else {
+          // If the chat is new (e.g., from a new group or 1-on-1), fetch all chats to get it
+          // This is a simpler approach than trying to construct the new chat object on the client
+          fetchChats();
+          return prevChats;
+        }
+      });
+    };
+
+    socket.on("message received", messageReceivedHandler);
 
     return () => {
-      socket.off("message received");
+      socket.off("message received", messageReceivedHandler);
     };
-    // eslint-disable-next-line
-  }, [fetchAgain]);
+  }, [socket, setChats]);
+
+  // Handle selecting a chat and clearing its notifications
+  const handleSelectChat = (chat) => {
+    setSelectedChat(chat);
+    // Remove notifications for this chat when it's opened
+    setNotification(notification.filter((n) => n.chat._id !== chat._id));
+  };
 
   return (
     <Box
-      d={{ base: selectedChat ? "none" : "flex", md: "flex" }}
+      display={{ base: selectedChat ? "none" : "flex", md: "flex" }}
       flexDir="column"
       alignItems="center"
-      p={1}
+      p={3}
+      bg="rgba(255, 255, 255, 0.1)"
       w={{ base: "100%", md: "31%" }}
       borderRadius="lg"
-      bg="rgba(255, 255, 255, 0.1)"
-      boxShadow="0 8px 32px 0 rgba(31, 38, 135, 0.37)"
-      backdropFilter="blur(10px)"
-      WebkitBackdropFilter="blur(10px)"
+      borderWidth="1px"
+      borderColor="rgba(255, 255, 255, 0.2)"
     >
       <Box
         pb={3}
         px={3}
         fontSize={{ base: "28px", md: "30px" }}
         fontFamily="Work sans"
-        d="flex"
+        display="flex"
         w="100%"
         justifyContent="space-between"
         alignItems="center"
         color="white"
       >
-        All Chats
+        My Chats
         <GroupChatModal>
           <Button
-            d="flex"
-            borderRadius="25px"
-            bg="rgba(255, 255, 255, 0.7)"
+            display="flex"
             fontSize={{ base: "17px", md: "10px", lg: "17px" }}
             rightIcon={<AddIcon />}
+            bg="rgba(255, 255, 255, 0.7)"
+            borderRadius="25px"
           >
             New Group
           </Button>
@@ -93,51 +147,62 @@ const MyChats = ({ fetchAgain }) => {
       </Box>
 
       <Box
-        d="flex"
+        display="flex"
         flexDir="column"
-        p={2}
+        p={3}
+        bg="rgba(0, 0, 0, 0.1)"
         w="100%"
         h="100%"
+        borderRadius="lg"
         overflowY="hidden"
       >
-        {chats && loggedUser ? (
+        {loading ? (
+          <ChatLoading />
+        ) : chats && chats.length > 0 ? (
           <Stack overflowY="scroll">
             {chats.map((chat) => {
-              const otherUser = !chat.isGroupChat
-                ? chat.users.find((u) => u._id !== loggedUser._id)
-                : null;
+              const otherUser = !chat.isGroupChat ? getSenderFull(user, chat.users) : null;
+              const hasNotification = notification.some((n) => n.chat._id === chat._id);
 
               return (
                 <Box
-                  onClick={() => setSelectedChat(chat)}
+                  onClick={() => handleSelectChat(chat)}
                   cursor="pointer"
                   bg={
-                    selectedChat === chat
+                    selectedChat?._id === chat._id
                       ? "rgba(56, 178, 172, 0.4)"
                       : "rgba(255, 255, 255, 0.1)"
                   }
-                  color={selectedChat === chat ? "white" : "blackAlpha.900"}
-                  px={2}
+                  color={selectedChat?._id === chat._id ? "white" : "blackAlpha.900"}
+                  px={3}
                   py={2}
                   borderRadius="lg"
                   key={chat._id}
+                  position="relative" // For notification dot
                 >
-                  <HStack align="flex-start" spacing={3}>
+                  {hasNotification && (
+                    <Box
+                      position="absolute"
+                      top="8px"
+                      right="8px"
+                      w="10px"
+                      h="10px"
+                      bg="blue.500"
+                      borderRadius="full"
+                      zIndex="docked"
+                    />
+                  )}
+                  <HStack align="center" spacing={3}>
                     <Avatar
-                      boxSize="50px"
+                      size="md"
                       src={!chat.isGroupChat ? otherUser?.pic : ""}
                       name={!chat.isGroupChat ? otherUser?.name : chat.chatName}
                       border="2px solid rgba(255,255,255,0.3)"
-                      boxShadow="0 0 10px rgba(255,255,255,0.1)"
                     />
-
                     <Box>
                       <Text fontWeight="bold" fontSize="md" color="white">
-                        {!chat.isGroupChat
-                          ? otherUser?.name
-                          : chat.chatName}
+                        {!chat.isGroupChat ? otherUser?.name : chat.chatName}
                       </Text>
-
                       {chat.latestMessage && (
                         <Text fontSize="sm" noOfLines={1} color="gray.300">
                           {chat.isGroupChat && (
@@ -146,9 +211,7 @@ const MyChats = ({ fetchAgain }) => {
                             </Text>
                           )}
                           <Text as="span" color="white">
-                            {chat.latestMessage.content.length > 50
-                              ? chat.latestMessage.content.substring(0, 51) + "..."
-                              : chat.latestMessage.content}
+                            {chat.latestMessage.content}
                           </Text>
                         </Text>
                       )}
@@ -159,7 +222,9 @@ const MyChats = ({ fetchAgain }) => {
             })}
           </Stack>
         ) : (
-          <ChatLoading />
+          <Text color="white" textAlign="center" mt={4}>
+            No chats found. Search for a user to start chatting!
+          </Text>
         )}
       </Box>
     </Box>
@@ -167,6 +232,177 @@ const MyChats = ({ fetchAgain }) => {
 };
 
 export default MyChats;
+
+
+// import { AddIcon } from "@chakra-ui/icons";
+// import { Box, Stack, Text, HStack } from "@chakra-ui/layout";
+// import { useToast } from "@chakra-ui/toast";
+// import axios from "axios";
+// import { useEffect, useState } from "react";
+// import { getSender } from "../config/ChatLogics";
+// import ChatLoading from "./ChatLoading";
+// import GroupChatModal from "./miscellaneous/GroupChatModal";
+// import { Button } from "@chakra-ui/react";
+// import { ChatState } from "../Context/ChatProvider";
+// import { socket } from "../config/socket";
+// import { Avatar } from "@chakra-ui/avatar";
+// const BASE_URL="https://sawcollabfinal.onrender.com" || "";
+// const MyChats = ({ fetchAgain }) => {
+//   const [loggedUser, setLoggedUser] = useState();
+//   const { selectedChat, setSelectedChat, user, chats, setChats } = ChatState();
+//   const toast = useToast();
+
+//   const fetchChats = async () => {
+//     try {
+//       const config = {
+//         headers: {
+//           Authorization: `Bearer ${user.token}`,
+//         },
+//       };
+
+//       const { data } = await axios.get(`${BASE_URL}/api/chat`, config);
+//       setChats(data);
+//     } catch (error) {
+//       toast({
+//         title: "Error Occurred!",
+//         description: "Failed to load the chats",
+//         status: "error",
+//         duration: 5000,
+//         isClosable: true,
+//         position: "bottom-left",
+//       });
+//     }
+//   };
+
+//   useEffect(() => {
+//     const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+//     setLoggedUser(userInfo);
+//     fetchChats();
+
+//     socket.emit("setup", user);
+//     socket.on("message received", () => {
+//       fetchChats();
+//     });
+
+//     return () => {
+//       socket.off("message received");
+//     };
+//     // eslint-disable-next-line
+//   }, [fetchAgain]);
+
+//   return (
+//     <Box
+//       d={{ base: selectedChat ? "none" : "flex", md: "flex" }}
+//       flexDir="column"
+//       alignItems="center"
+//       p={1}
+//       w={{ base: "100%", md: "31%" }}
+//       borderRadius="lg"
+//       bg="rgba(255, 255, 255, 0.1)"
+//       boxShadow="0 8px 32px 0 rgba(31, 38, 135, 0.37)"
+//       backdropFilter="blur(10px)"
+//       WebkitBackdropFilter="blur(10px)"
+//     >
+//       <Box
+//         pb={3}
+//         px={3}
+//         fontSize={{ base: "28px", md: "30px" }}
+//         fontFamily="Work sans"
+//         d="flex"
+//         w="100%"
+//         justifyContent="space-between"
+//         alignItems="center"
+//         color="white"
+//       >
+//         All Chats
+//         <GroupChatModal>
+//           <Button
+//             d="flex"
+//             borderRadius="25px"
+//             bg="rgba(255, 255, 255, 0.7)"
+//             fontSize={{ base: "17px", md: "10px", lg: "17px" }}
+//             rightIcon={<AddIcon />}
+//           >
+//             New Group
+//           </Button>
+//         </GroupChatModal>
+//       </Box>
+
+//       <Box
+//         d="flex"
+//         flexDir="column"
+//         p={2}
+//         w="100%"
+//         h="100%"
+//         overflowY="hidden"
+//       >
+//         {chats && loggedUser ? (
+//           <Stack overflowY="scroll">
+//             {chats.map((chat) => {
+//               const otherUser = !chat.isGroupChat
+//                 ? chat.users.find((u) => u._id !== loggedUser._id)
+//                 : null;
+
+//               return (
+//                 <Box
+//                   onClick={() => setSelectedChat(chat)}
+//                   cursor="pointer"
+//                   bg={
+//                     selectedChat === chat
+//                       ? "rgba(56, 178, 172, 0.4)"
+//                       : "rgba(255, 255, 255, 0.1)"
+//                   }
+//                   color={selectedChat === chat ? "white" : "blackAlpha.900"}
+//                   px={2}
+//                   py={2}
+//                   borderRadius="lg"
+//                   key={chat._id}
+//                 >
+//                   <HStack align="flex-start" spacing={3}>
+//                     <Avatar
+//                       boxSize="50px"
+//                       src={!chat.isGroupChat ? otherUser?.pic : ""}
+//                       name={!chat.isGroupChat ? otherUser?.name : chat.chatName}
+//                       border="2px solid rgba(255,255,255,0.3)"
+//                       boxShadow="0 0 10px rgba(255,255,255,0.1)"
+//                     />
+
+//                     <Box>
+//                       <Text fontWeight="bold" fontSize="md" color="white">
+//                         {!chat.isGroupChat
+//                           ? otherUser?.name
+//                           : chat.chatName}
+//                       </Text>
+
+//                       {chat.latestMessage && (
+//                         <Text fontSize="sm" noOfLines={1} color="gray.300">
+//                           {chat.isGroupChat && (
+//                             <Text as="span" fontWeight="bold" color="teal.200">
+//                               {chat.latestMessage.sender.name}:{" "}
+//                             </Text>
+//                           )}
+//                           <Text as="span" color="white">
+//                             {chat.latestMessage.content.length > 50
+//                               ? chat.latestMessage.content.substring(0, 51) + "..."
+//                               : chat.latestMessage.content}
+//                           </Text>
+//                         </Text>
+//                       )}
+//                     </Box>
+//                   </HStack>
+//                 </Box>
+//               );
+//             })}
+//           </Stack>
+//         ) : (
+//           <ChatLoading />
+//         )}
+//       </Box>
+//     </Box>
+//   );
+// };
+
+// export default MyChats;
 // import { AddIcon } from "@chakra-ui/icons";
 // import { Box, Stack, Text, HStack } from "@chakra-ui/layout";
 // import { useToast } from "@chakra-ui/toast";
