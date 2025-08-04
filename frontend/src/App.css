@@ -1,24 +1,83 @@
-@import url("https://fonts.googleapis.com/css2?family=Work+Sans:wght@300&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;600&display=swap");
+
 :root {
   --vh: 100%;
+  --primary-bg: linear-gradient(10deg, #0f2297d1, #828ad7eb);
+  --font: "Work Sans", sans-serif;
+  --scrollbar-thumb: rgba(136, 136, 136, 0.281);
+  --scrollbar-thumb-hover: #555;
 }
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font);
+}
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+  font-family: var(--font);
+  background-color: #f5f7fa;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
 .App {
   min-height: 100vh;
   display: flex;
-  background-image: linear-gradient(10deg, #0f2297d1, #828ad7eb);
+  background-image: var(--primary-bg);
   background-position: center;
   background-size: cover;
+  color: #fff;
+  padding: 10px;
 }
 
+/* Scrollbar - WebKit only */
 ::-webkit-scrollbar {
   width: 0px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(136, 136, 136, 0.281);
+  background: var(--scrollbar-thumb);
 }
 
-/* Handle on hover */
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Optional helper classes */
+.text-center {
+  text-align: center;
+}
+
+.mt-1 {
+  margin-top: 0.25rem;
+}
+.mt-2 {
+  margin-top: 0.5rem;
+}
+.mt-3 {
+  margin-top: 1rem;
+}
+
+.p-1 {
+  padding: 0.25rem;
+}
+.p-2 {
+  padding: 0.5rem;
+}
+.p-3 {
+  padding: 1rem;
+}
+
+/* Button Base Styling (can be overridden in Chakra or custom buttons) */
+button {
+  font-family: var(--font);
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s ease-in-out;
 }
