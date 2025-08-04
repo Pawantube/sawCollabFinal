@@ -1,4 +1,3 @@
-// ------------- SingleChat.js -----------------
 import {
   Box,
   Text,
@@ -16,9 +15,9 @@ import ChatMessages from "./ChatMessages";
 import ChatInputBox from "./ChatInputBox";
 import ReminderSidebar from "../components/reminders/ReminderSidebar";
 
-/* -------------------------------------------------
- * URLs – fall back to localhost during development
- * ------------------------------------------------*/
+/* ------------------------------------------------------------------
+ * URLs – configure with .env for prod, fallback to localhost dev
+ * ----------------------------------------------------------------*/
 const ENDPOINT =
   process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
 const API_BASE =
@@ -26,16 +25,16 @@ const API_BASE =
   "https://sawcollabfinal.onrender.com";
 
 const SingleChat = ({ fetchAgain, setFetchAgain }) => {
-  /* ---------------- state ---------------- */
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [newMessage, setNewMessage] = useState("");
-  const [socketConnected, setSocketConnected] = useState(false);
-  const [typing, setTyping] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  /* ------------- state ------------- */
+  const [messages,     setMessages]     = useState([]);
+  const [loading,      setLoading]      = useState(false);
+  const [newMessage,   setNewMessage]   = useState("");
+  const [socketOK,     setSocketOK]     = useState(false);
+  const [typingLocal,  setTypingLocal]  = useState(false);
+  const [typingRemote, setTypingRemote] = useState(false);
+  const [isSidebarOpen,setIsSidebarOpen]= useState(false);
 
-  /* --------------- context --------------- */
+  /* ------------- context ----------- */
   const {
     selectedChat,
     setSelectedChat,
@@ -44,49 +43,45 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     setNotification,
   } = ChatState();
 
-  /* --------------- refs ------------------ */
-  const socketRef = useRef();          // keeps socket instance stable
-  const selectedChatRef = useRef();    // holds latest selectedChat
-  const toast = useToast();
+  /* ------------- refs -------------- */
+  const socketRef        = useRef(null);
+  const selectedChatRef  = useRef(null);   // always points at latest chat
+  const toast            = useToast();
 
-  /* ---------------------------------------
-   *    Establish one-time socket connection
-   * --------------------------------------*/
+  /* ------------------------------------------------------------------
+   * One-time socket connection
+   * ----------------------------------------------------------------*/
   useEffect(() => {
     socketRef.current = io(ENDPOINT, { transports: ["websocket"] });
+
     socketRef.current.emit("setup", user);
 
-    socketRef.current.on("connected", () => setSocketConnected(true));
-    socketRef.current.on("typing", () => setIsTyping(true));
-    socketRef.current.on("stop typing", () => setIsTyping(false));
+    socketRef.current.on("connected",      () => setSocketOK(true));
+    socketRef.current.on("typing",         () => setTypingRemote(true));
+    socketRef.current.on("stop typing",    () => setTypingRemote(false));
 
-    // tidy up
     return () => socketRef.current.disconnect();
   }, [user]);
 
-  /* ---------------------------------------
-   *    Fetch messages whenever chat changes
-   * --------------------------------------*/
-  const fetchMessages = useCallback(async () => {
+  /* ------------------------------------------------------------------
+   * Load messages whenever chat changes
+   * ----------------------------------------------------------------*/
+  const loadMessages = useCallback(async () => {
     if (!selectedChat) return;
     setLoading(true);
 
     try {
-      const config = {
-        headers: { Authorization: `Bearer ${user.token}` },
-      };
-
       const { data } = await axios.get(
         `${API_BASE}/api/message/${selectedChat._id}`,
-        config
+        { headers: { Authorization: `Bearer ${user.token}` } }
       );
 
       setMessages(data);
       setLoading(false);
 
-      // Join the corresponding room
+      // join socket room for this chat
       socketRef.current.emit("join chat", selectedChat._id);
-    } catch (err) {
+    } catch (e) {
       setLoading(false);
       toast({
         title: "Failed to load messages",
@@ -95,77 +90,74 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         isClosable: true,
       });
     }
-  }, [selectedChat, user?.token, toast]);
+  }, [selectedChat, user.token, toast]);
 
   useEffect(() => {
-    selectedChatRef.current = selectedChat; // keep ref up-to-date
-    fetchMessages();
-    setIsTyping(false); // reset typing flag when switching rooms
-  }, [selectedChat, fetchMessages]);
+    selectedChatRef.current = selectedChat; // keep ref hot
+    loadMessages();
+    setTypingRemote(false);
+  }, [selectedChat, loadMessages]);
 
-  /* ---------------------------------------
-   *    Incoming messages
-   * --------------------------------------*/
+  /* ------------------------------------------------------------------
+   * Incoming messages
+   * ----------------------------------------------------------------*/
   useEffect(() => {
-    const onMessage = (incoming) => {
-      // if message not for currently open chat → turn into notification
-      if (
-        !selectedChatRef.current ||
-        selectedChatRef.current._id !== incoming.chat._id
-      ) {
-        if (!notification.some((n) => n._id === incoming._id)) {
-          setNotification((prev) => [incoming, ...prev]);
-          setFetchAgain((prev) => !prev);
-        }
+    const handleIncoming = (msg) => {
+      // If the message belongs to a different chat -> notification
+      if (!selectedChatRef.current ||
+          selectedChatRef.current._id !== msg.chat._id) {
+
+        setNotification((prev) => {
+          // avoid duplicates
+          if (prev.some((n) => n._id === msg._id)) return prev;
+          return [msg, ...prev];
+        });
+        setFetchAgain((p) => !p);
       } else {
-        setMessages((prev) => [...prev, incoming]);
+        setMessages((prev) => [...prev, msg]);
       }
     };
 
-    socketRef.current.on("message received", onMessage);
-    return () => socketRef.current.off("message received", onMessage);
-  }, [notification, setNotification, setFetchAgain]);
+    socketRef.current.on("message received", handleIncoming);
+    return () => socketRef.current.off("message received", handleIncoming);
+  }, [setNotification, setFetchAgain]);
 
-  /* ---------------------------------------
-   *    Typing indicator (debounced)
-   * --------------------------------------*/
-  const debouncedStopTyping = useRef(
-    debounce((chatId) => {
-      socketRef.current.emit("stop typing", chatId);
-      setTyping(false);
+  /* ------------------------------------------------------------------
+   * Typing indicator – debounce stop-typing
+   * ----------------------------------------------------------------*/
+  const stopTypingDebounced = useRef(
+    debounce((id) => {
+      socketRef.current.emit("stop typing", id);
+      setTypingLocal(false);
     }, 3000)
   ).current;
 
-  /* ---------------------------------------
-   *    Send a new message
-   * --------------------------------------*/
+  /* ------------------------------------------------------------------
+   * Send message
+   * ----------------------------------------------------------------*/
   const sendMessage = async () => {
-    const trimmed = newMessage.trim();
-    if (!trimmed) return;
+  const txt = newMessage.trim();
+  if (!txt) return;
 
-    debouncedStopTyping.cancel();
-    socketRef.current.emit("stop typing", selectedChat._id);
+   stopTypingDebounced.cancel();
+  socketRef.current.emit("stop typing", selectedChat._id);
 
     try {
-      const config = {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${user.token}`,
-        },
-      };
+    const { data } = await axios.post(
+      `${API_BASE}/api/message`,
+      { content: txt, chatId: selectedChat },
+      { headers: { "Content-Type": "application/json", Authorization: `Bearer ${user.token}` } }
+    );
 
-      const { data } = await axios.post(
-        `${API_BASE}/api/message`,
-        { content: trimmed, chatId: selectedChat },
-        config
-      );
+    setNewMessage("");
 
-      setNewMessage("");
+      // 1️⃣ Update local UI immediately
       setMessages((prev) => [...prev, data]);
-      socketRef.current.emit("new message", data);
+
+     
     } catch (err) {
       toast({
-        title: "Message not sent",
+        title: "Unable to send message",
         status: "error",
         duration: 4000,
         isClosable: true,
@@ -173,22 +165,22 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }
   };
 
-  /* ---------------------------------------
-   *    Handle input change / typing
-   * --------------------------------------*/
-  const typingHandler = (e) => {
+  /* ------------------------------------------------------------------
+   * Handle text-box changes / typing indicator
+   * ----------------------------------------------------------------*/
+  const handleInputChange = (e) => {
     setNewMessage(e.target.value);
 
-    if (!socketConnected) return;
+    if (!socketOK) return;
 
-    if (!typing) {
-      setTyping(true);
+    if (!typingLocal) {
+      setTypingLocal(true);
       socketRef.current.emit("typing", selectedChat._id);
     }
-    debouncedStopTyping(selectedChat._id);
+    stopTypingDebounced(selectedChat._id);
   };
 
-  /* ============   RENDER   ============ */
+  /* ==========================  RENDER  ========================== */
   if (!selectedChat) {
     return (
       <Box
@@ -207,7 +199,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
   return (
     <Box display="flex" flex="1" h="100vh" overflow="hidden" w="100%">
-      {/* -------- Left: chat area -------- */}
+      {/* ---------------- Chat area ---------------- */}
       <Box flex="1" display="flex" flexDirection="column">
         <ChatHeader
           user={user}
@@ -228,23 +220,20 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
           />
         ) : (
           <>
-            <ChatMessages messages={messages} isTyping={isTyping} />
+            <ChatMessages messages={messages} isTyping={typingRemote} />
 
             <ChatInputBox
               newMessage={newMessage}
-              setNewMessage={setNewMessage}
-              onChange={typingHandler}
+              onChange={handleInputChange}
               sendMessage={sendMessage}
-              istyping={isTyping}
-              selectedChat={selectedChat}
-              socketConnected={socketConnected}
-              socket={socketRef.current}
+              isTyping={typingRemote}
+              socketConnected={socketOK}
             />
           </>
         )}
       </Box>
 
-      {/* -------- Right: reminders (group chats) -------- */}
+      {/* ---------------- Reminder sidebar (group chats only) ---------------- */}
       {selectedChat.isGroupChat && (
         <ReminderSidebar
           isOpen={isSidebarOpen}

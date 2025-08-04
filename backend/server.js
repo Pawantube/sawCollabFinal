@@ -69,50 +69,22 @@ const io = new Server(server, {
 // Store io instance in app for access in cron jobs
 app.set("io", io);
 
-// Handle Socket.io events
 io.on("connection", (socket) => {
-  console.log("⚡ New socket connection");
+  console.log("⚡  Socket connected:", socket.id);
 
-  // Setup user by joining their room
-  socket.on("setup", (userData) => {
-    socket.join(userData._id);
+  socket.on("setup", (user) => {
+    socket.join(user._id);        // personal room (for notifications etc.)
     socket.emit("connected");
   });
 
-  // Join chat room
-  socket.on("join chat", (room) => {
-    socket.join(room);
-  });
+  socket.on("join chat", (chatId) => socket.join(chatId));
 
-  // Emit typing events to room
-  socket.on("typing", (room) => {
-    socket.in(room).emit("typing");
-  });
+  socket.on("typing",  (chatId) => socket.in(chatId).emit("typing"));
+  socket.on("stop typing", (chatId) => socket.in(chatId).emit("stop typing"));
 
-  socket.on("stop typing", (room) => {
-    socket.in(room).emit("stop typing");
-  });
 
-  // Handle new message event
-  socket.on("new message", (newMessage) => {
-    const chat = newMessage.chat;
-    if (!chat.users) return;
-
-    chat.users.forEach((user) => {
-      // Send message to all users except the sender
-      if (user._id !== newMessage.sender._id) {
-        socket.to(user._id).emit("message received", newMessage);
-      }
-    });
-
-    // Optionally emit to sender for consistency
-    socket.to(newMessage.sender._id).emit("message received", newMessage);
-  });
-
-  // Handle socket disconnection
-  socket.on("disconnect", () => {
-    console.log("🔌 Socket disconnected");
-  });
+ 
+  socket.on("disconnect", () => console.log("🔌  Socket disconnected"));
 });
 
 // Start the reminder cron job with access to Socket.io
