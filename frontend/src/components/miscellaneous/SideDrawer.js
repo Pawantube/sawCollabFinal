@@ -504,7 +504,10 @@ import NotificationBadge from "react-notification-badge";
 import { Effect } from "react-notification-badge";
 import { Portal } from "@chakra-ui/react";
 
-const BASE_URL = "https://sawcollabfinal.onrender.com" || process.env.REACT_APP_BASE_URL;
+const BASE_URL = process.env.NODE_ENV === "development"
+  ? "http://localhost:5000"
+  : "https://sawcollabfinal.onrender.com";
+
 
 function SideDrawer() {
   const [showReminderSidebar, setShowReminderSidebar] = useState(false);
