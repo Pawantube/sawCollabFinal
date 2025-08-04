@@ -1,19 +1,68 @@
 .chat-bubble-wrapper {
-	
-  overflow: visible;   /* Allow dropdown to render outside */
-	position: relative;
-	display: flex;
-	align-items: center;
-	z-index: auto;
-	gap: 8px;
-  }
-  
-  .reminder-button-hover {
-	opacity: 0.3;
-	transition: opacity 0.2s;
-  }
-  
-  .chat-bubble-wrapper:hover .reminder-button-hover {
-	opacity: 1;
-  }
-  
+  overflow: visible;
+  position: relative;
+  display: flex;
+  align-items: center;
+  z-index: auto;
+  gap: 8px;
+}
+
+/* For the reminder bell animation */
+.reminder-button-hover {
+  opacity: 0.3;
+  transition: opacity 0.2s;
+}
+.chat-bubble-wrapper:hover .reminder-button-hover {
+  opacity: 1;
+}
+
+/* FADE IN animation for new messages */
+.fade-in {
+  animation: fadeInChat 0.7s;
+}
+@keyframes fadeInChat {
+  from { opacity: 0; transform: translateY(12px);}
+  to   { opacity: 1; transform: translateY(0);}
+}
+
+/* Hover action buttons for copy, reply, delete, react */
+.bubble-action {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 16px;
+  opacity: 0.6;
+  padding: 3px;
+  margin: 0;
+  transition: color 0.22s, opacity 0.15s;
+  outline: none;
+}
+.bubble-action:hover {
+  opacity: 1;
+  color: #509cf6;
+}
+
+/* Emoji picker popover area */
+.emoji-picker-react {
+  box-shadow: 0 4px 16px #1112;
+  border-radius: 16px;
+  z-index: 20;
+}
+
+/* Animated typing indicator dots */
+.typing-dot {
+  font-size: 22px;
+  letter-spacing: 4px;
+  vertical-align: middle;
+  animation: typingAnim 1s infinite alternate;
+}
+@keyframes typingAnim {
+  0% { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+
+/* Optional: Fixes for better alignment */
+.message-bubble {
+  display: inline-block;
+  vertical-align: top;
+}
