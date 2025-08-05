@@ -1,10 +1,5 @@
 
-
-
-
-
-
-import { Box } from "@chakra-ui/layout";
+import { Box } from "@chakra-ui/react"; // Use Box from @chakra-ui/react
 import { useEffect, useState } from "react";
 import Chatbox from "../components/Chatbox";
 import MyChats from "../components/MyChats";
@@ -12,113 +7,233 @@ import SideDrawer from "../components/miscellaneous/SideDrawer";
 import { ChatState } from "../Context/ChatProvider";
 import ReminderListModal from "../components/reminders/ReminderListModal";
 
+// Assuming these imports are correct and the service is set up
 import {
-	triggerReminderNotification,
-	registerServiceWorker,
-	requestNotificationPermission,
-	notificationHelpers,
-  } from "../utils/notificationService"
-  
+  registerServiceWorker,
+  requestNotificationPermission,
+  notificationHelpers,
+} from "../utils/notificationService";
 
 const Chatpage = () => {
   const [fetchAgain, setFetchAgain] = useState(false);
   const { user } = ChatState();
 
+  // This useEffect handles one-time setup tasks
   useEffect(() => {
-	const initNotifications = async () => {
-	  try {
-		await registerServiceWorker();
-  
-		if (notificationHelpers.isSupported()) {
-		  const isGranted = await requestNotificationPermission();
-		  if (!isGranted) {
-			console.warn("🔕 Notification permission not granted.");
-		  }
-		}
-	  } catch (error) {
-		console.error("Notification setup failed:", error);
-	  }
-	};
-	const setVh = () => {
-    const vh = window.innerHeight * 0.01;
-    document.documentElement.style.setProperty('--vh', `${vh}px`);
+    // --- Notification Setup ---
+    const initNotifications = async () => {
+      try {
+        await registerServiceWorker();
+        if (notificationHelpers.isSupported()) {
+          const isGranted = await requestNotificationPermission();
+          if (!isGranted) {
+            console.warn("🔕 Notification permission not granted.");
+          }
+        }
+      } catch (error) {
+        console.error("Notification setup failed:", error);
+      }
+    };
+    initNotifications();
+
+    // --- Mobile Viewport Height Fix (Good practice, but our new layout is more robust) ---
+    const setVh = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty("--vh", `${vh}px`);
+    };
+    setVh();
+    window.addEventListener("resize", setVh);
+
+    // Cleanup function for the event listener
+    return () => window.removeEventListener("resize", setVh);
+  }, []); // Empty dependency array ensures this runs only once on mount
+
+  // Note: The test reminder functions are kept, but the button to trigger them is not rendered.
+  // This logic is fine and doesn't need to be changed.
+  const showNotification = () => {
+    navigator.serviceWorker.ready.then((registration) => {
+      registration.showNotification("🔔 Test Reminder", {
+        body: "This is a test reminder with actions",
+        icon: "/icon.png",
+        actions: [
+          { action: "mark-done", title: "✅ Mark as Done" },
+          { action: "remind-again", title: "🔁 Remind Me Again" },
+        ],
+        data: { message: "", id: "test-id" },
+      });
+    });
   };
-  setVh();
-  window.addEventListener('resize', setVh);
-  return () => window.removeEventListener('resize', setVh);
-  
-	initNotifications();
-  }, []);
-  
 
   const triggerTestReminder = () => {
     if (!("Notification" in window)) {
       alert("This browser does not support notifications.");
       return;
     }
-
-    if (Notification.permission === "default") {
-      Notification.requestPermission().then((permission) => {
-        if (permission === "granted") {
-          showNotification();
-        } else {
-          console.log("❌ Notification permission denied");
-        }
-      });
-    } else if (Notification.permission === "granted") {
+    if (Notification.permission === "granted") {
       showNotification();
-    } else {
-      console.log("❌ Notification permission denied");
+    } else if (Notification.permission === "default") {
+      Notification.requestPermission().then((permission) => {
+        if (permission === "granted") showNotification();
+      });
     }
   };
 
-  const showNotification = () => {
-    navigator.serviceWorker.ready.then((registration) => {
-      registration.showNotification("🔔 Test Reminder", {
-        body: "This is a test reminder with actions",
-        icon: "/icon.png", // ✅ Make sure it exists in public/
-        actions: [
-          { action: "mark-done", title: "✅ Mark as Done" },
-          { action: "remind-again", title: "🔁 Remind Me Again" },
-        ],
-        data: {
-          message: "",
-          id: "test-id",
-        },
-      });
-    });
-  };
-
   return (
-    <div style={{ width: "100vw" ,height:"97vh",
-        display: "flex",
-        flexDirection: "column",background:"0000"}}>
+    // ✨ FIX 1: MAIN CONTAINER - Using Chakra's Box for consistency
+    <Box
+      w="100%" // Use 100% instead of 100vw to avoid horizontal scrollbar issues
+      h="96vh" // The container will take the full screen height
+      display="flex"
+      flexDir="column" // Arrange children vertically (SideDrawer on top, content below)
+      overflow="hidden" // ✨ KEY FIX: Prevents any scrolling on the main page
+    >
+      {user && <SideDrawer />}
+
+      {/* ✨ FIX 2: CONTENT AREA - This box will take all remaining space */}
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        w="100%"
+        flex="1" // ✨ KEY FIX: This makes the box fill the remaining vertical space
+        overflowY="hidden" // Prevents this box from scrolling, scrolling will be inside children
+        sx={{
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          borderRadius: "10px",
+        }}
+      >
+        {user && <MyChats fetchAgain={fetchAgain} />}
+        {user && (
+          <Chatbox fetchAgain={fetchAgain} setFetchAgain={setFetchAgain} />
+        )}
+        {/* ReminderListModal is a modal, so it doesn't affect the layout directly.
+            Keeping it here as per your original structure. */}
+        {user && <ReminderListModal />}
+      </Box>
+    </Box>
+  );
+};
+
+export default Chatpage;
+
+
+
+
+// import { Box } from "@chakra-ui/layout";
+// import { useEffect, useState } from "react";
+// import Chatbox from "../components/Chatbox";
+// import MyChats from "../components/MyChats";
+// import SideDrawer from "../components/miscellaneous/SideDrawer";
+// import { ChatState } from "../Context/ChatProvider";
+// import ReminderListModal from "../components/reminders/ReminderListModal";
+
+// import {
+// 	triggerReminderNotification,
+// 	registerServiceWorker,
+// 	requestNotificationPermission,
+// 	notificationHelpers,
+//   } from "../utils/notificationService"
+  
+
+// const Chatpage = () => {
+//   const [fetchAgain, setFetchAgain] = useState(false);
+//   const { user } = ChatState();
+
+//   useEffect(() => {
+// 	const initNotifications = async () => {
+// 	  try {
+// 		await registerServiceWorker();
+  
+// 		if (notificationHelpers.isSupported()) {
+// 		  const isGranted = await requestNotificationPermission();
+// 		  if (!isGranted) {
+// 			console.warn("🔕 Notification permission not granted.");
+// 		  }
+// 		}
+// 	  } catch (error) {
+// 		console.error("Notification setup failed:", error);
+// 	  }
+// 	};
+// 	const setVh = () => {
+//     const vh = window.innerHeight * 0.01;
+//     document.documentElement.style.setProperty('--vh', `${vh}px`);
+//   };
+//   setVh();
+//   window.addEventListener('resize', setVh);
+//   return () => window.removeEventListener('resize', setVh);
+  
+// 	initNotifications();
+//   }, []);
+  
+
+//   const triggerTestReminder = () => {
+//     if (!("Notification" in window)) {
+//       alert("This browser does not support notifications.");
+//       return;
+//     }
+
+//     if (Notification.permission === "default") {
+//       Notification.requestPermission().then((permission) => {
+//         if (permission === "granted") {
+//           showNotification();
+//         } else {
+//           console.log("❌ Notification permission denied");
+//         }
+//       });
+//     } else if (Notification.permission === "granted") {
+//       showNotification();
+//     } else {
+//       console.log("❌ Notification permission denied");
+//     }
+//   };
+
+//   const showNotification = () => {
+//     navigator.serviceWorker.ready.then((registration) => {
+//       registration.showNotification("🔔 Test Reminder", {
+//         body: "This is a test reminder with actions",
+//         icon: "/icon.png", // ✅ Make sure it exists in public/
+//         actions: [
+//           { action: "mark-done", title: "✅ Mark as Done" },
+//           { action: "remind-again", title: "🔁 Remind Me Again" },
+//         ],
+//         data: {
+//           message: "",
+//           id: "test-id",
+//         },
+//       });
+//     });
+//   };
+
+//   return (
+//     <div style={{ width: "100vw" ,height:"97vh",
+//         display: "flex",
+//         flexDirection: "column",background:"0000"}}>
      
 
-      {user && <SideDrawer />}
-	   {/* 🔘 Button to trigger a test reminder */}
+//       {user && <SideDrawer />}
+// 	   {/* 🔘 Button to trigger a test reminder */}
 	
       
 	   
  
 
 
-      <Box d="flex" justifyContent="space-between"  w="100%"  m="2"     display="flex"  h="93%"  sx={{
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
+//       <Box d="flex" justifyContent="space-between"  w="100%"      display="flex"  h="93%"  sx={{
+//           backdropFilter: "blur(14px)",
+//           WebkitBackdropFilter: "blur(14px)",
          
-          borderRadius: "10px",
+//           borderRadius: "10px",
          
-        }} >
-        {user && <MyChats fetchAgain={fetchAgain} />}
-        {user && <Chatbox fetchAgain={fetchAgain} setFetchAgain={setFetchAgain} />}
-        {user && <ReminderListModal />}
-      </Box>
-    </div>
-  );
-};
+//         }} >
+//         {user && <MyChats fetchAgain={fetchAgain} />}
+//         {user && <Chatbox fetchAgain={fetchAgain} setFetchAgain={setFetchAgain} />}
+//         {user && <ReminderListModal />}
+//       </Box>
+//     </div>
+//   );
+// };
 
-export default Chatpage;
+// export default Chatpage;
 
 // import { Box } from "@chakra-ui/layout";
 // import { useState } from "react";

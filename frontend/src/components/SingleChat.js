@@ -160,36 +160,43 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       {selectedChat ? (
         <>
           <Text
-            fontSize={{ base: "28px", md: "30px" }}
-            pb={5}
-            px={2}
-            w="100%"
-            fontFamily="Work sans"
-            display="flex"
-            justifyContent={{ base: "space-between" }}
-            alignItems="center"
-          >
-            <IconButton
-              display={{ base: "flex", md: "none" }}
-              icon={<ArrowBackIcon />}
-              onClick={() => setSelectedChat("")}
-            />
-            {!selectedChat.isGroupChat ? (
-              <>
-                {getSender(user, selectedChat.users)}
-                <ProfileModal user={getSenderFull(user, selectedChat.users)} />
-              </>
-            ) : (
-              <>
-                {selectedChat.chatName.toUpperCase()}
-                <UpdateGroupChatModal
-                  fetchMessages={fetchMessages}
-                  fetchAgain={fetchAgain}
-                  setFetchAgain={setFetchAgain}
-                />
-              </>
-            )}
-          </Text>
+  fontSize={{ base: "28px", md: "30px" }}
+  pb={3}
+  px={{ base: 12, md: 2 }} // ✨ 1. Add padding to prevent text overlapping icons
+  w="100%"
+  fontFamily="Work sans"
+  display="flex"
+  justifyContent="center"   // ✨ 2. KEY CHANGE: Center the main content (the name)
+  alignItems="center"
+  position="relative"        // ✨ 3. KEY CHANGE: Allows absolute positioning for icons
+>
+  {/* Back Arrow (Left Icon) - Positioned absolutely */}
+  <IconButton
+    display={{ base: "flex", md: "none" }}
+    icon={<ArrowBackIcon />}
+    onClick={() => setSelectedChat("")}
+    position="absolute"
+    left={{ base: 2, md: 4 }} // Use Chakra spacing units
+  />
+
+  {/* Chat Name (Centered Text) - This will now be perfectly centered */}
+  {!selectedChat.isGroupChat
+    ? getSender(user, selectedChat.users)
+    : selectedChat.chatName.toUpperCase()}
+  
+  {/* Profile/Settings (Right Icon) - Wrapped in a Box and positioned absolutely */}
+  <Box position="absolute" right={{ base: 2, md: 4 }}>
+    {!selectedChat.isGroupChat ? (
+      <ProfileModal user={getSenderFull(user, selectedChat.users)} />
+    ) : (
+      <UpdateGroupChatModal
+        fetchMessages={fetchMessages}
+        fetchAgain={fetchAgain}
+        setFetchAgain={setFetchAgain}
+      />
+    )}
+  </Box>
+</Text>
           <Box
             display="flex"
             flexDir="column"
