@@ -195,6 +195,10 @@ const ChatProvider = ({ children }) => {
     // --- LISTEN FOR 'message received' EVENT ---
     const handleMessageReceived = (newMessageRecieved) => {
       console.log("ChatProvider: 'message received' event handler fired.", newMessageRecieved);
+	  if (newMessageRecieved.sender._id === user._id) {
+        return;
+      }
+      
       // Check if a chat is selected and if the incoming message is for the currently selected chat
       if (
         !selectedChatRef.current || // No chat is selected

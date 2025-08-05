@@ -90,9 +90,9 @@ const Chatpage = () => {
   };
 
   return (
-    <div style={{ width: "100vw" ,height:"100vh",background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    <div style={{ width: "100vw" ,height:"97vh",
         display: "flex",
-        flexDirection: "column",}}>
+        flexDirection: "column",background:"0000"}}>
      
 
       {user && <SideDrawer />}
@@ -103,17 +103,12 @@ const Chatpage = () => {
  
 
 
-      <Box d="flex" justifyContent="space-between" bgGradient="linear(to-r, purple.800, blue.500)" w="100%"  p="10px"     display="flex" 
-      
-        h="91.5vh"
-       
-        sx={{
+      <Box d="flex" justifyContent="space-between"  w="100%"  m="2"     display="flex"  h="93%"  sx={{
           backdropFilter: "blur(14px)",
           WebkitBackdropFilter: "blur(14px)",
-          background: "rgba(255, 255, 255, 0.1)",
-          border: "1px solid rgba(255, 255, 255, 0.2)",
+         
           borderRadius: "10px",
-          boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.37)",
+         
         }} >
         {user && <MyChats fetchAgain={fetchAgain} />}
         {user && <Chatbox fetchAgain={fetchAgain} setFetchAgain={setFetchAgain} />}

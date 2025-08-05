@@ -211,7 +211,9 @@ const MyChats = ({ fetchAgain }) => {
                             </Text>
                           )}
                           <Text as="span" color="white">
-                            {chat.latestMessage.content}
+                             {chat.latestMessage.content.length > 50
+    ? chat.latestMessage.content.slice(0, 50) + "..."
+    : chat.latestMessage.content}
                           </Text>
                         </Text>
                       )}

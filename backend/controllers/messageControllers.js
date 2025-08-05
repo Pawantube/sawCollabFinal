@@ -111,6 +111,58 @@ const allMessages = asyncHandler(async (req, res) => {
 // @description Send a new message
 // @route POST /api/message
 // @access Protected
+// const sendMessage = asyncHandler(async (req, res) => {
+//   const { content, chatId } = req.body;
+
+//   if (!content || !chatId) {
+//     console.log("Invalid data passed into request: content or chatId missing.");
+//     return res.status(400).json({ message: "Content and Chat ID are required." });
+//   }
+
+//   const newMessageData = {
+//     sender: req.user._id,
+//     content: content,
+//     chat: chatId,
+//   };
+
+//   try {
+//     // 1. Create the new message
+//     let message = await Message.create(newMessageData);
+
+//     // 2. Populate the message with all necessary details in one go
+//     // This is the CRITICAL change. We use .populate() twice.
+//     // First, to get the 'sender' details.
+//     // Second, to get the 'chat' details, AND THEN we use another populate
+//     // on that result to populate the 'users' within the chat.
+//     message = await Message.findById(message._id) // Re-fetch to apply populate cleanly
+//       .populate("sender", "name pic")
+//       .populate({
+//         path: "chat",
+//         populate: {
+//           path: "users",
+//           select: "name pic email", // Ensure users array in chat is populated
+//         },
+//       })
+//       .exec();
+
+//     // 3. Update the latest message for the chat
+//     await Chat.findByIdAndUpdate(chatId, { latestMessage: message });
+
+//     // 4. Emit the fully populated message to the correct socket room
+//     // All users in this chat (who are connected) will receive this event.
+//     // The frontend will handle whether to show it as a live message or a notification.
+//     req.app.get("io").to(chatId).emit("message received", message);
+
+//     // 5. Respond to the original sender with the full message object
+//     res.status(201).json(message);
+
+//   } catch (error) {
+//     console.error("Error sending message:", error.message);
+//     res.status(500);
+//     throw new Error("Failed to send the message. " + error.message);
+//   }
+// });
+
 const sendMessage = asyncHandler(async (req, res) => {
   const { content, chatId } = req.body;
 
@@ -126,34 +178,36 @@ const sendMessage = asyncHandler(async (req, res) => {
   };
 
   try {
-    // 1. Create the new message
     let message = await Message.create(newMessageData);
 
-    // 2. Populate the message with all necessary details in one go
-    // This is the CRITICAL change. We use .populate() twice.
-    // First, to get the 'sender' details.
-    // Second, to get the 'chat' details, AND THEN we use another populate
-    // on that result to populate the 'users' within the chat.
-    message = await Message.findById(message._id) // Re-fetch to apply populate cleanly
+    message = await Message.findById(message._id)
       .populate("sender", "name pic")
       .populate({
         path: "chat",
         populate: {
           path: "users",
-          select: "name pic email", // Ensure users array in chat is populated
+          select: "name pic email",
         },
       })
       .exec();
 
-    // 3. Update the latest message for the chat
     await Chat.findByIdAndUpdate(chatId, { latestMessage: message });
 
-    // 4. Emit the fully populated message to the correct socket room
-    // All users in this chat (who are connected) will receive this event.
-    // The frontend will handle whether to show it as a live message or a notification.
-    req.app.get("io").to(chatId).emit("message received", message);
+    // ================== ✨ THIS IS THE MAIN FIX ✨ ==================
+    // We get the socket.io instance
+    const io = req.app.get("io");
 
-    // 5. Respond to the original sender with the full message object
+    // We emit the message to all users in the chat EXCEPT the sender
+    message.chat.users.forEach(user => {
+      // Don't send the "message received" event back to the original sender
+      if (user._id.toString() === message.sender._id.toString()) {
+        return;
+      }
+      // Emit to each recipient's personal socket room
+      io.in(user._id.toString()).emit("message received", message);
+    });
+    // ===============================================================
+
     res.status(201).json(message);
 
   } catch (error) {
@@ -162,5 +216,4 @@ const sendMessage = asyncHandler(async (req, res) => {
     throw new Error("Failed to send the message. " + error.message);
   }
 });
-
 module.exports = { allMessages, sendMessage };
