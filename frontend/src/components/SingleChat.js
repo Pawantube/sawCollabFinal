@@ -188,7 +188,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         <>
           <Text
             fontSize={{ base: "28px", md: "30px" }}
-            pb={3}
+            pb={5}
             px={2}
             w="100%"
             fontFamily="Work sans"
@@ -221,8 +221,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
             display="flex"
             flexDir="column"
             justifyContent="flex-end"
-            p={3}
-            bg="#E8E8E8"
+            px={1}
+            
             w="100%"
             h="100%"
             borderRadius="lg"
@@ -247,6 +247,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                 placeholder="Enter a message.."
                 value={newMessage}
                 onChange={typingHandler}
+				borderRadius="20px"
               />
             </FormControl>
           </Box>

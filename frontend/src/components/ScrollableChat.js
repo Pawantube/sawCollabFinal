@@ -126,7 +126,7 @@ const ScrollableChat = ({
                   )}
                   <div
                     style={{
-                      fontSize: "9px",
+                      fontSize: "8px",
                       color: "#888",
                       textAlign: "right",
                       marginTop: "4px",
@@ -158,77 +158,85 @@ const ScrollableChat = ({
                   </div>
                 </span>
 
-                {activeMessage === m._id && (
-                  <div
-                    ref={menuRef}
-                    style={{
-                      position: "absolute",
-                      top: "100%",
-                      right: 0,
-                      background: "#fff",
-                      boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                      borderRadius: "8px",
-                      zIndex: 100,
-                      width: "max-content",
-                      minWidth: "160px",
-                      maxWidth: "90vw",
-                      marginTop: 6,
-                    }}
-                  >
-                    <button className="bubble-action" onClick={() => console.log("Info")}>
-                      <MdOutlineRemoveRedEye /> Message Info
-                    </button>
-                    <button className="bubble-action" onClick={() => onReply?.(m)}>
-                      <MdReply /> Reply
-                    </button>
-                    <button className="bubble-action" onClick={() => onCopy?.(m.content)}>
-                      <MdContentCopy /> Copy
-                    </button>
-                    <button
-                      className="bubble-action"
-                      onClick={() =>
-                        setShowEmoji(showEmoji === m._id ? null : m._id)
-                      }
-                    >
-                      😀 React
-                    </button>
-                    <button className="bubble-action" onClick={() => onForward?.(m)}>
-                      <MdForward /> Forward
-                    </button>
-                    <button className="bubble-action" onClick={() => onPin?.(m)}>
-                      <MdPushPin /> Pin
-                    </button>
-                    <button className="bubble-action" onClick={() => onStar?.(m)}>
-                      <MdStar /> Star
-                    </button>
-                    <button className="bubble-action" onClick={() => onEdit?.(m)}>
-                      <MdEdit /> Edit
-                    </button>
-                    {isOwnMessage && (
-                      <button className="bubble-action" onClick={() => onDelete?.(m._id)}>
-                        <MdDelete /> Delete
-                      </button>
-                    )}
-                  </div>
-                )}
+               {activeMessage === m._id && (
+  <div
+    ref={menuRef}
+    style={{
+		display:"flex",
+		flexDirection:"column",
+      position: "relative",
+      top: "100%",
+      right: 0,
+		
+      boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+      borderRadius: "10px",
+      zIndex: 100,
+      width: "max-content",
+      minWidth: "180px",
+      maxWidth: "90vw",
+      marginTop: 6,
+      padding: "6px 0",
+      backdropFilter: "blur(4px)",
+    }}
+  >
+    <button className="bubble-action" onClick={() => console.log("Info")}>
+      <MdOutlineRemoveRedEye /> Message Info
+    </button>
+    <button className="bubble-action" onClick={() => onReply?.(m)}>
+      <MdReply /> Reply
+    </button>
+    <button className="bubble-action" onClick={() => onCopy?.(m.content)}>
+      <MdContentCopy /> Copy
+    </button>
+    <button
+      className="bubble-action"
+      onClick={() => setShowEmoji(showEmoji === m._id ? null : m._id)}
+    >
+      😀 React
+    </button>
+    <button className="bubble-action" onClick={() => onForward?.(m)}>
+      <MdForward /> Forward
+    </button>
+    <button className="bubble-action" onClick={() => onPin?.(m)}>
+      <MdPushPin /> Pin
+    </button>
+    <button className="bubble-action" onClick={() => onStar?.(m)}>
+      <MdStar /> Star
+    </button>
+    <button className="bubble-action" onClick={() => onEdit?.(m)}>
+      <MdEdit /> Edit
+    </button>
+    {isOwnMessage && (
+      <button className="bubble-action" onClick={() => onDelete?.(m._id)}>
+        <MdDelete /> Delete
+      </button>
+    )}
+  </div>
+)}
 
-                {showEmoji === m._id && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "110%",
-                      right: 0,
-                      zIndex: 200,
-                    }}
-                  >
-                    <Picker
-                      onEmojiClick={(event, emojiObject) => {
-                        onReact?.(m._id, emojiObject.emoji);
-                        setShowEmoji(null);
-                      }}
-                    />
-                  </div>
-                )}
+{showEmoji === m._id && (
+  <div
+    style={{
+      position: "absolute",
+      top: "110%",
+      right: 0,
+      zIndex: 200,
+      background: "#fff",
+      borderRadius: "12px",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+      overflow: "hidden",
+    }}
+  >
+    <Picker
+      onEmojiClick={(event, emojiObject) => {
+        onReact?.(m._id, emojiObject.emoji);
+        setShowEmoji(null);
+      }}
+      theme="light"
+    />
+  </div>
+)}
+
 
                 <div className="reminder-button-hover">
                   <ReminderButton message={m.content} />
