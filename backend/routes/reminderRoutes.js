@@ -1,43 +1,36 @@
 const express = require("express");
 const { protect } = require("../middleware/authMiddleware");
-
-const router = express.Router();
 const {
   createReminder,
   getRemindersForUser,
+  toggleReminderDone,
   markAsDone,
   rescheduleReminder,
   deleteReminder,
   getRemindersForChat,
+  getPublicChatReminders,
   getPublicReminders,
   markReminderAsSent,
-  toggleReminderDone,
 } = require("../controllers/reminderController");
 
+const router = express.Router();
 
-// Create a new reminder
+// Create
 router.post("/", protect, createReminder);
 
-// Get all reminders for logged-in user
+// Read
 router.get("/user", protect, getRemindersForUser);
-
-// Get all group reminders for a specific chat
 router.get("/chat/:chatId", protect, getRemindersForChat);
-
+router.get("/chat/:chatId/public", getPublicChatReminders); // no auth
 router.get("/public", protect, getPublicReminders);
-// Mark a reminder as donea
-router.put("/:id/done", protect, markAsDone);
 
-router.put("/:id/mark-sent", protect, markReminderAsSent);//new
-
-// Reschedule a reminder
-router.put("/:id/reschedule", protect, rescheduleReminder);
+// Update
 router.put("/:id/toggle-done", protect, toggleReminderDone);
+router.put("/:id/done", protect, markAsDone);              // legacy alias for SW or old clients
+router.put("/:id/reschedule", protect, rescheduleReminder);
+router.put("/:id/mark-sent", protect, markReminderAsSent);
 
-// Delete a reminder
+// Delete
 router.delete("/:id", protect, deleteReminder);
 
-router.put("/:id/done", protect, toggleReminderDone);
-
-
-module.exports = router
+module.exports = router;
