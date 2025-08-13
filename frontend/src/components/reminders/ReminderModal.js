@@ -11,6 +11,7 @@ import {
   Input,
   Textarea,
   Radio,
+  Box,
   RadioGroup,
   Stack,
   useToast,
@@ -21,36 +22,44 @@ import { ChatState } from "../../Context/ChatProvider";
 
 const DEFAULT_BASE = "https://sawcollabfinal.onrender.com";
 const API_BASE =
-  process.env.REACT_APP_API_URL && process.env.REACT_APP_API_URL.trim().length
-    ? process.env.REACT_APP_API_URL
-    : DEFAULT_BASE;
+  (process.env.REACT_APP_API_URL && process.env.REACT_APP_API_URL.trim()) ||
+  DEFAULT_BASE;
 
 const ReminderModal = ({ isOpen, onClose, message }) => {
   const { selectedChat, user } = ChatState();
   const toast = useToast();
 
   const [reminderText, setReminderText] = useState(message || "");
-  const [dueAtLocal, setDueAtLocal] = useState(""); // value from <input type="datetime-local">
-  const [type, setType] = useState("me"); // "me" | "us" | "public"
+  const [dueAtLocal, setDueAtLocal] = useState(""); // "YYYY-MM-DDTHH:mm"
+  const [type, setType] = useState("me"); // API values: "me" | "us" | "public"
   const [loading, setLoading] = useState(false);
 
-  // Precompute minimal validation
+  const requiresChat = type === "us"; // group scope requires chatId
+
+  // Inline explanation text (labels updated, API values untouched)
+  const typeDescriptions = {
+    me: "Only you will receive this reminder.",
+    us: "Everyone in this chat (including you) will receive this reminder.",
+    public: "Everyone across the app will receive this reminder.",
+  };
+  const currentExplanation =
+    typeDescriptions[type] || "Choose who should receive this reminder.";
+
+  // Basic validation
   const formValid = useMemo(() => {
-    const hasBasics = reminderText.trim().length > 0 && dueAtLocal;
+    const hasBasics = reminderText.trim().length > 0 && !!dueAtLocal;
     if (!hasBasics) return false;
-    if (type === "us") return !!selectedChat?._id;
-    return true; // me or public
-  }, [reminderText, dueAtLocal, type, selectedChat]);
+    if (requiresChat) return !!selectedChat?._id;
+    return true;
+  }, [reminderText, dueAtLocal, requiresChat, selectedChat]);
 
   useEffect(() => {
     setReminderText(message || "");
   }, [message]);
 
-  // Convert 'YYYY-MM-DDTHH:mm' (local) -> ISO with timezone
+  // Normalize local datetime → ISO
   const toISOStringFromLocalInput = (value) => {
-    // If user hasn’t set a date/time yet
     if (!value) return "";
-    // Construct in local time then convert to ISO
     const dt = new Date(value);
     return dt.toISOString();
   };
@@ -58,11 +67,15 @@ const ReminderModal = ({ isOpen, onClose, message }) => {
   const handleSubmit = async () => {
     if (!formValid) {
       toast({
-        title: "All fields required",
+        title: "Missing information",
         description:
-          type === "us" && !selectedChat?._id
-            ? "Please choose a chat for a group reminder."
-            : "Please add a message and a due time.",
+          !reminderText.trim()
+            ? "Please enter a reminder message."
+            : !dueAtLocal
+            ? "Please select a date and time."
+            : requiresChat && !selectedChat?._id
+            ? "Please open a chat for a group reminder."
+            : "Please complete the form.",
         status: "warning",
         duration: 3000,
         isClosable: true,
@@ -84,14 +97,12 @@ const ReminderModal = ({ isOpen, onClose, message }) => {
         message: reminderText.trim(),
         dueAt: toISOStringFromLocalInput(dueAtLocal),
         type, // "me" | "us" | "public"
-        ...(type === "us" ? { chatId: selectedChat._id } : {}), // only for group
+        ...(requiresChat ? { chatId: selectedChat._id } : {}),
       };
 
       await axios.post(`${API_BASE}/api/reminders`, payload, config);
 
-      // Optional: schedule a local client-side notification so users see something
-      // even if they navigate away before the server cron fires.
-      // Safe no-op if SW/permissions aren’t ready.
+      // Optional: local client-side notification fallback
       if (
         "Notification" in window &&
         Notification.permission === "granted" &&
@@ -113,13 +124,13 @@ const ReminderModal = ({ isOpen, onClose, message }) => {
                   { action: "remind-again", title: "🔁 Remind Me Again" },
                 ],
                 data: {
-                  id: undefined, // this local fallback doesn’t have a server id
+                  id: undefined,
                   message: payload.message,
-                  token: user.token, // SW needs this for actions
+                  token: user.token,
                 },
               });
             } catch {
-              /* ignore local notification errors */
+              /* ignore */
             }
           }, delay);
         }
@@ -132,7 +143,7 @@ const ReminderModal = ({ isOpen, onClose, message }) => {
         isClosable: true,
       });
 
-      // Reset form
+      // Reset + close
       setReminderText("");
       setDueAtLocal("");
       setType("me");
@@ -166,30 +177,55 @@ const ReminderModal = ({ isOpen, onClose, message }) => {
             placeholder="Reminder message..."
             value={reminderText}
             onChange={(e) => setReminderText(e.target.value)}
-            mb={3}
+            mb={2}
+            isInvalid={!reminderText.trim()}
           />
 
           <Input
             type="datetime-local"
             value={dueAtLocal}
             onChange={(e) => setDueAtLocal(e.target.value)}
-            mb={3}
+            mb={2}
+            isInvalid={!dueAtLocal}
           />
+
+          <Box
+            mb={2}
+            p={2}
+            borderRadius="md"
+            bg="gray.50"
+            _dark={{ bg: "gray.700" }}
+            fontSize="sm"
+          >
+            {currentExplanation}
+          </Box>
 
           <RadioGroup onChange={setType} value={type}>
             <Stack direction="row">
-              <Radio value="me">Private</Radio>
-              <Radio value="us">Group</Radio>
-              <Radio value="public">Public (everyone)</Radio>
+              {/* Labels updated, API values unchanged */}
+              <Radio value="me">Just me</Radio>
+              <Radio value="us">This chat</Radio>
+              <Radio value="public">Everyone</Radio>
             </Stack>
           </RadioGroup>
+
+          {requiresChat && !selectedChat?._id && (
+            <Box mt={2} color="orange.400" fontSize="sm">
+              Open a chat to send a “This chat” reminder.
+            </Box>
+          )}
         </ModalBody>
 
         <ModalFooter>
           <Button variant="ghost" mr={3} onClick={onClose}>
             Cancel
           </Button>
-          <Button colorScheme="teal" onClick={handleSubmit} isLoading={loading} isDisabled={!formValid}>
+          <Button
+            colorScheme="teal"
+            onClick={handleSubmit}
+            isLoading={loading}
+            isDisabled={!formValid}
+          >
             Save
           </Button>
         </ModalFooter>
