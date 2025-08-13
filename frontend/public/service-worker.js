@@ -1,24 +1,38 @@
 /* public/service-worker.js */
 
-/* Ensure the newest SW takes control immediately */
+/* Take control immediately */
 self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
-
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
+});
+
+/* Allow page to force activation (optional) */
+self.addEventListener("message", (event) => {
+  if (event?.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 /* Focus an existing client window or open a new one */
 async function openOrFocus(url = "/") {
   const clientList = await clients.matchAll({ type: "window", includeUncontrolled: true });
   for (const client of clientList) {
-    // Focus first matching client
-    if ("focus" in client) {
-      return client.focus();
-    }
+    if ("focus" in client) return client.focus();
   }
   return clients.openWindow(url);
+}
+
+/* Prevent double-action when users double-click notifications */
+const handledTags = new Set();
+function markHandled(tag) {
+  if (!tag) return false;
+  if (handledTags.has(tag)) return true;
+  handledTags.add(tag);
+  // auto-clear after 15s
+  setTimeout(() => handledTags.delete(tag), 15000);
+  return false;
 }
 
 /**
@@ -27,36 +41,42 @@ async function openOrFocus(url = "/") {
  * - "remind-again"  => PUT /api/reminders/:id/reschedule (+10 min)
  * Default click (no action) focuses/opens the app.
  *
- * NOTE: The app must pass { id, token } in notification.data
+ * Expects notification.data to include:
+ *   { id: string, token: string, tag?: string, url?: string }
  */
 self.addEventListener("notificationclick", (event) => {
   const { action, notification } = event;
-  const data = (notification && notification.data) || {};
+  const data = notification?.data || {};
   const id = data.id;
   const token = data.token;
+  const tag = data.tag;
+  const url = data.url || "/";
 
   event.notification.close();
 
+  // De-dupe repeated clicks for the same notification
+  if (markHandled(tag)) return;
+
+  // Missing auth or id → just focus/open app
   if (!id || !token) {
-    // Missing auth or id: just focus/open the app
-    event.waitUntil(openOrFocus("/"));
+    event.waitUntil(openOrFocus(url));
     return;
   }
 
   if (action === "mark-done") {
     event.waitUntil(
-      fetch(`/api/reminders/${id}/toggle-done`, {
+      fetch(`/api/reminders/${encodeURIComponent(id)}/toggle-done`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-      }).catch(() => {}) // avoid unhandled rejection crashing the SW
+      }).catch(() => {})
     );
   } else if (action === "remind-again") {
-    const newDueAt = new Date(Date.now() + 10 * 60 * 1000);
+    const newDueAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     event.waitUntil(
-      fetch(`/api/reminders/${id}/reschedule`, {
+      fetch(`/api/reminders/${encodeURIComponent(id)}/reschedule`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -66,18 +86,15 @@ self.addEventListener("notificationclick", (event) => {
       }).catch(() => {})
     );
   } else {
-    // Default click: open or focus the app
-    event.waitUntil(openOrFocus("/"));
+    // Default click: open or focus the app (optionally route to chat/reminder page)
+    event.waitUntil(openOrFocus(url));
   }
 });
 
-/* Optional: react when a notification is dismissed by the user
+/* Optional: track dismissals
 self.addEventListener("notificationclose", (event) => {
-  // You could analytics-log dismissals here if needed
+  // analytics/log if you want
 });
 */
 
-/* ⚠️ DO NOT auto-show test notifications in production.
-   If you need to test locally, manually call:
-   registration.showNotification("Test", { data: { id: "...", token: "..." }, actions: [...] })
-*/
+/* ⚠️ Do not auto-show test notifications in production. */

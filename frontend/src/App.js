@@ -34,12 +34,12 @@ function App() {
         }
 
         // When the controller changes (new SW active), reload once to ensure it's in control
-        navigator.serviceWorker.addEventListener("controllerchange", () => {
-          if (!reloaded) {
-            reloaded = true;
-            window.location.reload();
-          }
-        });
+        // navigator.serviceWorker.addEventListener("controllerchange", () => {
+        //   if (!reloaded) {
+        //     reloaded = true;
+        //     window.location.reload();
+        //   }
+        // });
 
         // 🔔 Request notification permission (non-blocking UX)
         const granted = await requestNotificationPermission();

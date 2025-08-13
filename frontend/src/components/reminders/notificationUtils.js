@@ -2,47 +2,69 @@
 
 /**
  * Show an OS-level reminder notification via the active Service Worker.
- * Expects the service worker to handle:
+ * Expected payload shape (from reminderCron / socket):
+ * {
+ *   _id: string,
+ *   title?: string,
+ *   message: string,
+ *   sender?: { _id: string, name: string },
+ *   recipient?: { _id: string, name: string },
+ *   tag?: string,            // e.g., rem-<reminderId>-<userId>
+ *   token?: string           // JWT for SW actions
+ * }
+ *
+ * SW should handle actions:
  *  - "mark-done"     -> PUT /api/reminders/:id/toggle-done
  *  - "remind-again"  -> PUT /api/reminders/:id/reschedule
- *
- * @param {{ _id?: string, id?: string, title?: string, message: string, token?: string }} reminder
  */
 export const showReminderNotification = async (reminder) => {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   if (!("serviceWorker" in navigator)) return;
 
   try {
-    const reg = await navigator.serviceWorker.getRegistration();
-    if (!reg) return;
+    const registration = await navigator.serviceWorker.ready;
+    if (!registration) return;
 
-    const id = String(reminder._id || reminder.id || "");
+    const id = String(reminder?._id || reminder?.id || "");
     if (!id) {
       console.warn("⚠️ showReminderNotification: missing reminder id");
       return;
     }
 
-    const title = `🔔 ${reminder.title?.trim() || "Reminder"}`;
-    const body = String(reminder.message || "");
+    const recipientName = reminder?.recipient?.name || "You";
+    const senderName = reminder?.sender?.name || "Someone";
+    const titleText = reminder?.title?.trim() || "Reminder";
 
-    await reg.showNotification(title, {
+    // Personalized title/body
+    const title = `🔔 ${recipientName}, you have a reminder`;
+    const body = `from ${senderName}: ${reminder?.message ?? ""}`;
+
+    // Stable per-user tag to prevent duplicate OS toasts
+    const tag =
+      reminder?.tag ||
+      `rem-${id}-${reminder?.recipient?._id ? String(reminder.recipient._id) : "me"}`;
+
+    await registration.showNotification(title, {
       body,
       icon: "/favicon.ico",
       badge: "/favicon.ico",
-      tag: `reminder-${id}`,         // dedup same reminder
-      renotify: true,
-      requireInteraction: true,      // keep visible until user acts
+      tag,                 // OS/browser dedupe
+      renotify: true,      // update existing notification if same tag arrives
+      requireInteraction: true,
       actions: [
         { action: "mark-done", title: "✅ Mark Done" },
         { action: "remind-again", title: "⏰ Remind Later" },
       ],
       data: {
         id,
-        message: body,
-        token: reminder.token || null, // SW uses this to auth API calls
+        tag,
+        message: reminder?.message ?? "",
+        title: titleText,
+        token: reminder?.token || null, // SW uses this to auth API calls
       },
     });
   } catch (err) {
     console.error("showReminderNotification failed:", err);
   }
 };
+p
