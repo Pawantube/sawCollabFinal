@@ -6,7 +6,7 @@ import {
   registerServiceWorker,
   requestNotificationPermission,
 } from "../utils/notificationService";
-import { showReminderNotification } from "../components/reminder/notificationUtils"; // ← singular "reminder"
+import { showReminderNotification } from "../components/reminders/notificationUtils"; // ← singular "reminder"
 
 export default function useReminderListener(user) {
   const toast = useToast();
